@@ -112,6 +112,7 @@ Shortcut scripts are also available:
 powershell -ExecutionPolicy Bypass -File scripts\start_dashboard.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_tests.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_demo_cycle.ps1
+powershell -ExecutionPolicy Bypass -File scripts\doctor.ps1
 ```
 
 To scan a symbol list and create ranked evidence candidates:
@@ -161,6 +162,7 @@ ready for paper execution. It does not send real orders.
 - `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
 - `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
 - `daytrade_bot/health.py` summarizes warnings for dashboard operation.
+- `daytrade_bot/doctor.py` runs local diagnostics across the paper trading system.
 - `daytrade_bot/trade_plan.py` converts ranked candidates into paper order candidates.
 - `daytrade_bot/paper_execution.py` executes guarded paper orders.
 - `daytrade_bot/paper_summary.py` summarizes paper positions, risk, and PnL.
