@@ -69,6 +69,12 @@ To open the local dashboard:
 C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.dashboard
 ```
 
+To scan a symbol list and create ranked evidence candidates:
+
+```powershell
+C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.scanner --symbols data/symbols.csv --demo --fetched-at 2026-07-08T09:12:00
+```
+
 ## Structure
 
 - `daytrade_bot/market.py` reads tick data.
@@ -77,6 +83,7 @@ C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\p
 - `daytrade_bot/evidence.py` scores disclosure/news/social evidence.
 - `daytrade_bot/evidence_backtest.py` replays evidence against market ticks.
 - `daytrade_bot/yahoo_finance.py` collects Yahoo Finance Japan news into evidence CSV.
+- `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
 - `daytrade_bot/dashboard.py` serves a local browser dashboard.
 - `daytrade_bot/risk.py` blocks unsafe orders.
 - `daytrade_bot/broker.py` contains paper and live broker adapters.

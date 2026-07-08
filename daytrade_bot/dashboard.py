@@ -21,16 +21,15 @@ DEFAULT_PORT = 8765
 
 
 HTML = r"""<!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>kabu dashboard</title>
   <style>
     :root {
-      color-scheme: light;
       --bg: #f6f7f9;
-      --surface: #ffffff;
+      --surface: #fff;
       --line: #d9dee7;
       --text: #19202a;
       --muted: #637083;
@@ -52,6 +51,7 @@ HTML = r"""<!doctype html>
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       padding: 16px 22px;
       background: var(--surface);
       border-bottom: 1px solid var(--line);
@@ -62,7 +62,7 @@ HTML = r"""<!doctype html>
       grid-template-columns: 340px 1fr;
       gap: 16px;
       padding: 16px;
-      max-width: 1280px;
+      max-width: 1320px;
       margin: 0 auto;
     }
     section {
@@ -116,7 +116,7 @@ HTML = r"""<!doctype html>
       padding: 0 12px;
       border: 1px solid #b8c2d0;
       border-radius: 6px;
-      background: #ffffff;
+      background: #fff;
       color: var(--ink);
       font-weight: 700;
       cursor: pointer;
@@ -137,7 +137,7 @@ HTML = r"""<!doctype html>
     }
     th { color: var(--muted); font-weight: 700; background: #fbfcfe; }
     td.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .grid { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 12px; }
     .metric {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -146,12 +146,11 @@ HTML = r"""<!doctype html>
     }
     .metric .label { font-size: 12px; }
     .metric .value { margin-top: 8px; font-size: 20px; font-weight: 800; text-align: left; }
-    .wide { grid-column: 1 / -1; }
     code { font-family: Consolas, monospace; font-size: 12px; color: var(--muted); }
     @media (max-width: 900px) {
       main { grid-template-columns: 1fr; padding: 10px; }
       .grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
-      header { align-items: flex-start; gap: 10px; flex-direction: column; }
+      header { align-items: flex-start; flex-direction: column; }
     }
   </style>
 </head>
@@ -159,49 +158,59 @@ HTML = r"""<!doctype html>
   <header>
     <h1>kabu dashboard</h1>
     <div class="actions">
-      <button class="primary" onclick="postAction('/api/yahoo-demo')">Yahoo取得</button>
-      <button class="primary" onclick="postAction('/api/backtest')">バックテスト</button>
-      <button class="danger" onclick="postAction('/api/stop')">停止</button>
-      <button onclick="postAction('/api/clear-stop')">停止解除</button>
+      <button class="primary" onclick="postAction('/api/yahoo-demo')">Yahoo demo</button>
+      <button class="primary" onclick="postAction('/api/scan-candidates')">Scan candidates</button>
+      <button class="primary" onclick="postAction('/api/backtest')">Backtest</button>
+      <button class="danger" onclick="postAction('/api/stop')">Stop</button>
+      <button onclick="postAction('/api/clear-stop')">Clear stop</button>
     </div>
   </header>
   <main>
     <div class="stack">
       <section>
-        <div class="panel-title">状態 <span id="stop-pill" class="pill">...</span></div>
+        <div class="panel-title">System <span id="stop-pill" class="pill">...</span></div>
         <div class="panel-body stack">
           <div class="row"><span class="label">NetStock</span><span id="netstock" class="value">...</span></div>
-          <div class="row"><span class="label">実行ファイル</span><span id="exe" class="value">...</span></div>
-          <div class="row"><span class="label">最終更新</span><span id="updated" class="value">...</span></div>
+          <div class="row"><span class="label">Executable</span><span id="exe" class="value">...</span></div>
+          <div class="row"><span class="label">Updated</span><span id="updated" class="value">...</span></div>
         </div>
       </section>
       <section>
-        <div class="panel-title">操作ログ</div>
+        <div class="panel-title">Action log</div>
         <div class="panel-body"><code id="message">ready</code></div>
+      </section>
+      <section>
+        <div class="panel-title">Evidence</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Time</th><th>Symbol</th><th>Source</th><th>Title</th><th>Confidence</th></tr></thead>
+            <tbody id="evidence"></tbody>
+          </table>
+        </div>
       </section>
     </div>
     <div class="stack">
       <section>
-        <div class="panel-title">バックテスト</div>
+        <div class="panel-title">Backtest summary</div>
         <div class="panel-body">
           <div class="grid" id="metrics"></div>
         </div>
       </section>
       <section>
-        <div class="panel-title">直近シグナル</div>
+        <div class="panel-title">Candidates</div>
         <div class="panel-body">
           <table>
-            <thead><tr><th>時刻</th><th>銘柄</th><th>イベント</th><th>判定</th><th>理由</th><th>根拠</th></tr></thead>
-            <tbody id="events"></tbody>
+            <thead><tr><th>Symbol</th><th>Name</th><th>Action</th><th>Score</th><th>Items</th><th>Reason</th><th>Top titles</th></tr></thead>
+            <tbody id="candidates"></tbody>
           </table>
         </div>
       </section>
       <section>
-        <div class="panel-title">根拠材料</div>
+        <div class="panel-title">Recent signals</div>
         <div class="panel-body">
           <table>
-            <thead><tr><th>時刻</th><th>銘柄</th><th>情報源</th><th>見出し</th><th>信頼度</th></tr></thead>
-            <tbody id="evidence"></tbody>
+            <thead><tr><th>Time</th><th>Symbol</th><th>Event</th><th>Action</th><th>Reason</th><th>Evidence</th></tr></thead>
+            <tbody id="events"></tbody>
           </table>
         </div>
       </section>
@@ -212,35 +221,42 @@ HTML = r"""<!doctype html>
       const res = await fetch('/api/state');
       const data = await res.json();
       document.getElementById('updated').textContent = data.updated_at;
-      document.getElementById('netstock').textContent = data.netstock.is_running ? '起動中' : '未起動';
-      document.getElementById('exe').textContent = data.netstock.exe_exists ? data.netstock.exe_path : '未検出';
+      document.getElementById('netstock').textContent = data.netstock.is_running ? 'Running' : 'Not running';
+      document.getElementById('exe').textContent = data.netstock.exe_exists ? data.netstock.exe_path : 'Not found';
       const stop = document.getElementById('stop-pill');
-      stop.textContent = data.stop_trading ? '停止中' : '稼働可';
+      stop.textContent = data.stop_trading ? 'Stopped' : 'Ready';
       stop.className = 'pill ' + (data.stop_trading ? 'sell' : 'buy');
       renderMetrics(data.summary);
+      renderCandidates(data.candidates);
       renderEvents(data.events);
       renderEvidence(data.evidence);
     }
     function renderMetrics(summary) {
       const labels = {
-        closed_trades: '決済回数',
-        wins: '勝ち',
-        losses: '負け',
-        win_rate_pct: '勝率',
-        realized_pnl: '実現損益',
-        average_win: '平均利益',
-        average_loss: '平均損失',
-        max_drawdown: '最大DD'
+        closed_trades: 'Closed trades',
+        wins: 'Wins',
+        losses: 'Losses',
+        win_rate_pct: 'Win rate',
+        realized_pnl: 'Realized PnL',
+        average_win: 'Average win',
+        average_loss: 'Average loss',
+        max_drawdown: 'Max DD'
       };
       document.getElementById('metrics').innerHTML = Object.entries(labels).map(([key, label]) => {
         const value = summary[key] ?? 0;
         return `<div class="metric"><div class="label">${label}</div><div class="value">${value}</div></div>`;
       }).join('');
     }
+    function renderCandidates(items) {
+      document.getElementById('candidates').innerHTML = items.map(row => {
+        const cls = row.action === 'buy' ? 'buy' : row.action === 'sell' ? 'sell' : '';
+        return `<tr><td>${row.symbol}</td><td>${row.name}</td><td><span class="pill ${cls}">${row.action}</span></td><td class="num">${row.score}</td><td class="num">${row.evidence_count}</td><td>${row.reason}</td><td>${row.top_titles}</td></tr>`;
+      }).join('');
+    }
     function renderEvents(events) {
       document.getElementById('events').innerHTML = events.map(row => {
         const cls = row.action === 'buy' ? 'buy' : row.action === 'sell' ? 'sell' : '';
-        return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${row.event}</td><td><span class="pill ${cls}">${row.action || row.side || '-'}</span></td><td>${row.reason || ''}</td><td class="num">${row.evidence_score || ''}</td></tr>`;
+        return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${row.event}</td><td><span class="pill ${cls}">${row.action || row.side || '-'}</span></td><td>${row.reason || ''}</td><td class="num">${row.evidence_score || row.score || ''}</td></tr>`;
       }).join('');
     }
     function renderEvidence(items) {
@@ -332,6 +348,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             self.send_json(command_response(result, "Yahoo evidence updated"))
             return
+        if path == "/api/scan-candidates":
+            result = run_module(
+                "daytrade_bot.scanner",
+                [
+                    "--symbols",
+                    str(DATA_DIR / "symbols.csv"),
+                    "--demo",
+                    "--fetched-at",
+                    "2026-07-08T09:12:00",
+                    "--evidence-output",
+                    str(DATA_DIR / "scan_evidence.csv"),
+                    "--candidates-output",
+                    str(DATA_DIR / "candidates.csv"),
+                ],
+            )
+            self.send_json(command_response(result, "Candidate scan finished"))
+            return
         if path == "/api/backtest":
             result = run_module(
                 "daytrade_bot.backtest",
@@ -398,6 +431,7 @@ def build_state() -> dict[str, object]:
             "exe_path": str(status.exe_path),
         },
         "summary": latest_summary(),
+        "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
         "events": read_csv_rows(log_path, limit=14),
         "evidence": read_csv_rows(DATA_DIR / "yahoo_evidence.csv", limit=10),
     }
