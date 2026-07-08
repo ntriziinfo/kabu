@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from .backtest import summarize
 from .netstock_highspeed import get_status
 from .paper_execution import CONFIRM_FILE
+from .paper_summary import build_paper_summary
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -351,6 +352,7 @@ HTML = r"""<!doctype html>
       renderFailures(data.failures);
       renderPrices(data.prices);
       renderPaperMetrics(data.paper_state, data.paper_confirmation);
+      renderPaperSummary(data.paper_summary);
       renderPaperPositions(data.paper_positions);
       renderPaperOrders(data.paper_orders);
     }
@@ -429,6 +431,21 @@ HTML = r"""<!doctype html>
         ['状態', state.last_message || '-']
       ];
       document.getElementById('paper-metrics').innerHTML = rows.map(([label, value]) => {
+        return `<div class="metric"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+      }).join('');
+    }
+    function renderPaperSummary(summary) {
+      const rows = [
+        ['保有数', summary.position_count ?? 0],
+        ['保有株数', summary.total_quantity ?? 0],
+        ['投下金額', summary.cost_basis ?? 0],
+        ['時価評価', summary.market_value ?? 0],
+        ['含み損益', summary.unrealized_pnl ?? 0],
+        ['合計損益', summary.total_pnl ?? 0],
+        ['想定損失', summary.total_risk_amount ?? 0],
+        ['紙勝率', `${summary.win_rate_pct ?? 0}%`]
+      ];
+      document.getElementById('paper-metrics').innerHTML += rows.map(([label, value]) => {
         return `<div class="metric"><div class="label">${label}</div><div class="value">${value}</div></div>`;
       }).join('');
     }
@@ -960,6 +977,13 @@ def build_state() -> dict[str, object]:
     status = get_status()
     monitor_status = read_json_file(MONITOR_STATUS_FILE)
     paper_state = read_json_file(DATA_DIR / "paper_state.json")
+    price_path = PRICE_FILE if PRICE_FILE.exists() else DEMO_PRICE_FILE
+    paper_summary = build_paper_summary(
+        DATA_DIR / "paper_positions.csv",
+        DATA_DIR / "paper_orders.csv",
+        price_path,
+        DATA_DIR / "paper_state.json",
+    )
     monitor_pid = read_monitor_pid()
     monitor_running = is_pid_running(monitor_pid)
     monitor_status["running"] = monitor_running
@@ -982,7 +1006,8 @@ def build_state() -> dict[str, object]:
         "summary": latest_summary(),
         "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
         "trade_plan": read_csv_rows(DATA_DIR / "trade_plan.csv", limit=20),
-        "prices": read_csv_rows(PRICE_FILE if PRICE_FILE.exists() else DEMO_PRICE_FILE, limit=20),
+        "prices": read_csv_rows(price_path, limit=20),
+        "paper_summary": paper_summary,
         "paper_state": {
             "date": paper_state.get("date", "-"),
             "realized_pnl": paper_state.get("realized_pnl", 0),
