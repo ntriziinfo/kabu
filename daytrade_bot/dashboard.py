@@ -20,8 +20,16 @@ LOG_DIR = ROOT / "logs"
 STOP_FILE = ROOT / "STOP_TRADING"
 MONITOR_PID_FILE = DATA_DIR / "monitor.pid"
 MONITOR_STATUS_FILE = DATA_DIR / "monitor_status.json"
+MONITOR_SETTINGS_FILE = DATA_DIR / "monitor_settings.json"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+DEFAULT_MONITOR_SETTINGS: dict[str, object] = {
+    "mode": "demo",
+    "interval": 60,
+    "delay": 1.5,
+    "retries": 2,
+    "timeout": 10,
+}
 
 
 HTML = r"""<!doctype html>
@@ -127,6 +135,15 @@ HTML = r"""<!doctype html>
     }
     button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     button.danger { background: #c92a2a; border-color: #c92a2a; color: #fff; }
+    input, select {
+      height: 32px;
+      min-width: 120px;
+      border: 1px solid #b8c2d0;
+      border-radius: 6px;
+      padding: 0 8px;
+      background: #fff;
+      color: var(--ink);
+    }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; }
     table {
       width: 100%;
@@ -189,6 +206,17 @@ HTML = r"""<!doctype html>
         <div class="panel-body"><code id="message">ready</code></div>
       </section>
       <section>
+        <div class="panel-title">Monitor settings</div>
+        <div class="panel-body stack">
+          <div class="row"><span class="label">Mode</span><select id="setting-mode"><option value="demo">demo</option><option value="live">live</option></select></div>
+          <div class="row"><span class="label">Interval sec</span><input id="setting-interval" type="number" min="10" step="5"></div>
+          <div class="row"><span class="label">Delay sec</span><input id="setting-delay" type="number" min="0" step="0.5"></div>
+          <div class="row"><span class="label">Retries</span><input id="setting-retries" type="number" min="0" step="1"></div>
+          <div class="row"><span class="label">Timeout sec</span><input id="setting-timeout" type="number" min="3" step="1"></div>
+          <div class="actions"><button onclick="saveMonitorSettings()">Save settings</button></div>
+        </div>
+      </section>
+      <section>
         <div class="panel-title">Evidence</div>
         <div class="panel-body">
           <table>
@@ -242,6 +270,7 @@ HTML = r"""<!doctype html>
       document.getElementById('netstock').textContent = data.netstock.is_running ? 'Running' : 'Not running';
       document.getElementById('monitor').textContent = data.monitor.running ? `Running (${data.monitor.mode || 'unknown'})` : 'Stopped';
       document.getElementById('monitor-cycle').textContent = data.monitor.last_cycle_at || data.monitor.message || '-';
+      renderSettings(data.settings);
       document.getElementById('exe').textContent = data.netstock.exe_exists ? data.netstock.exe_path : 'Not found';
       const stop = document.getElementById('stop-pill');
       stop.textContent = data.stop_trading ? 'Stopped' : 'Ready';
@@ -267,6 +296,13 @@ HTML = r"""<!doctype html>
         const value = summary[key] ?? 0;
         return `<div class="metric"><div class="label">${label}</div><div class="value">${value}</div></div>`;
       }).join('');
+    }
+    function renderSettings(settings) {
+      document.getElementById('setting-mode').value = settings.mode || 'demo';
+      document.getElementById('setting-interval').value = settings.interval ?? 60;
+      document.getElementById('setting-delay').value = settings.delay ?? 1.5;
+      document.getElementById('setting-retries').value = settings.retries ?? 2;
+      document.getElementById('setting-timeout').value = settings.timeout ?? 10;
     }
     function renderCandidates(items) {
       document.getElementById('candidates').innerHTML = items.map(row => {
@@ -294,6 +330,25 @@ HTML = r"""<!doctype html>
       const msg = document.getElementById('message');
       msg.textContent = 'running ' + path;
       const res = await fetch(path, { method: 'POST' });
+      const data = await res.json();
+      msg.textContent = data.message || JSON.stringify(data);
+      await loadState();
+    }
+    async function saveMonitorSettings() {
+      const payload = {
+        mode: document.getElementById('setting-mode').value,
+        interval: Number(document.getElementById('setting-interval').value),
+        delay: Number(document.getElementById('setting-delay').value),
+        retries: Number(document.getElementById('setting-retries').value),
+        timeout: Number(document.getElementById('setting-timeout').value)
+      };
+      const msg = document.getElementById('message');
+      msg.textContent = 'saving settings';
+      const res = await fetch('/api/save-monitor-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
       const data = await res.json();
       msg.textContent = data.message || JSON.stringify(data);
       await loadState();
@@ -353,6 +408,38 @@ def read_json_file(path: Path) -> dict[str, object]:
         return {}
 
 
+def monitor_settings() -> dict[str, object]:
+    settings = dict(DEFAULT_MONITOR_SETTINGS)
+    settings.update(read_json_file(MONITOR_SETTINGS_FILE))
+    settings["mode"] = "live" if settings.get("mode") == "live" else "demo"
+    settings["interval"] = max(10, int(float(settings.get("interval", 60))))
+    settings["delay"] = max(0.0, float(settings.get("delay", 1.5)))
+    settings["retries"] = max(0, int(float(settings.get("retries", 2))))
+    settings["timeout"] = max(3.0, float(settings.get("timeout", 10)))
+    return settings
+
+
+def save_monitor_settings(values: dict[str, object]) -> dict[str, object]:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    current = monitor_settings()
+    for key in ("mode", "interval", "delay", "retries", "timeout"):
+        if key in values:
+            current[key] = values[key]
+    normalized = monitor_settings_from_values(current)
+    MONITOR_SETTINGS_FILE.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8")
+    return normalized
+
+
+def monitor_settings_from_values(values: dict[str, object]) -> dict[str, object]:
+    return {
+        "mode": "live" if values.get("mode") == "live" else "demo",
+        "interval": max(10, int(float(values.get("interval", 60)))),
+        "delay": max(0.0, float(values.get("delay", 1.5))),
+        "retries": max(0, int(float(values.get("retries", 2)))),
+        "timeout": max(3.0, float(values.get("timeout", 10))),
+    }
+
+
 def read_monitor_pid() -> int | None:
     if not MONITOR_PID_FILE.exists():
         return None
@@ -372,11 +459,12 @@ def is_pid_running(pid: int | None) -> bool:
         return False
 
 
-def start_monitor_process(demo: bool = True) -> dict[str, object]:
+def start_monitor_process() -> dict[str, object]:
     pid = read_monitor_pid()
     if is_pid_running(pid):
         return {"ok": True, "message": f"Monitor already running pid={pid}"}
 
+    settings = monitor_settings()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     args = [
         sys.executable,
@@ -385,13 +473,13 @@ def start_monitor_process(demo: bool = True) -> dict[str, object]:
         "--symbols",
         str(DATA_DIR / "symbols.csv"),
         "--interval",
-        "60",
+        str(settings["interval"]),
         "--delay",
-        "1.5",
+        str(settings["delay"]),
         "--retries",
-        "2",
+        str(settings["retries"]),
         "--timeout",
-        "10",
+        str(settings["timeout"]),
         "--evidence-output",
         str(DATA_DIR / "scan_evidence.csv"),
         "--candidates-output",
@@ -399,7 +487,7 @@ def start_monitor_process(demo: bool = True) -> dict[str, object]:
         "--failures-output",
         str(DATA_DIR / "scan_failures.csv"),
     ]
-    if demo:
+    if settings["mode"] == "demo":
         args.extend(["--demo", "--fetched-at", "2026-07-08T09:12:00"])
 
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -411,7 +499,7 @@ def start_monitor_process(demo: bool = True) -> dict[str, object]:
         creationflags=creationflags,
     )
     MONITOR_PID_FILE.write_text(str(process.pid), encoding="utf-8")
-    return {"ok": True, "message": f"Monitor started pid={process.pid}"}
+    return {"ok": True, "message": f"Monitor started pid={process.pid} mode={settings['mode']}"}
 
 
 def stop_monitor_process() -> dict[str, object]:
@@ -441,6 +529,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path == "/api/save-monitor-settings":
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            raw_body = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                values = json.loads(raw_body)
+            except json.JSONDecodeError:
+                self.send_json({"ok": False, "message": "Invalid JSON"})
+                return
+            settings = save_monitor_settings(values)
+            self.send_json({"ok": True, "message": "Monitor settings saved", "settings": settings})
+            return
         if path == "/api/yahoo-demo":
             result = run_module(
                 "daytrade_bot.yahoo_finance",
@@ -500,7 +599,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_json(command_response(result, "Live candidate scan finished"))
             return
         if path == "/api/start-monitor":
-            self.send_json(start_monitor_process(demo=True))
+            self.send_json(start_monitor_process())
             return
         if path == "/api/stop-monitor":
             self.send_json(stop_monitor_process())
@@ -577,6 +676,7 @@ def build_state() -> dict[str, object]:
             "exe_path": str(status.exe_path),
         },
         "monitor": monitor_status,
+        "settings": monitor_settings(),
         "summary": latest_summary(),
         "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
         "events": read_csv_rows(log_path, limit=14),

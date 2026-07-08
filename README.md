@@ -90,8 +90,9 @@ C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\p
 ```
 
 The dashboard also has `Start monitor` and `Stop monitor` buttons. Monitoring
-updates candidates and writes status to `data/monitor_status.json`. Real orders
-are still disabled.
+updates candidates and writes status to `data/monitor_status.json`. The
+dashboard settings panel controls demo/live mode, scan interval, request delay,
+retry count, and timeout. Real orders are still disabled.
 
 ## Structure
 
