@@ -29,6 +29,8 @@ Paper-first intraday auto-trading system for Japanese equities.
 5. `紙トレード実行` で紙約定と保有履歴へ反映します。
 
 監視設定では、最低材料点、1銘柄上限、損切り%、利確%、日次損失上限、1日取引上限、連敗停止を変更できます。
+`紙自動処理` がONの場合、監視中に株価更新、候補スキャン、注文案作成、紙トレード処理まで自動で回します。
+新規買いは `実行前確認` がONなら、`紙注文を確認` を押すまで待ちます。保有中の損切り/利確判定は紙トレード上で自動処理されます。
 初期サンプル価格は `data/latest_prices.csv`、実行時の更新価格は `data/runtime_prices.csv` に保存されます。
 
 This repository starts with a paper-trading bot and a local NetStock High Speed

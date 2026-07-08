@@ -41,6 +41,7 @@ DEFAULT_MONITOR_SETTINGS: dict[str, object] = {
     "max_trades_per_day": 10,
     "max_losing_streak": 3,
     "require_confirmation": True,
+    "paper_auto_execute": True,
 }
 
 
@@ -236,6 +237,7 @@ HTML = r"""<!doctype html>
           <div class="row"><span class="label">日次損失上限 円</span><input id="setting-max-daily-loss" type="number" min="1000" step="1000"></div>
           <div class="row"><span class="label">1日取引上限</span><input id="setting-max-trades" type="number" min="1" step="1"></div>
           <div class="row"><span class="label">連敗停止</span><input id="setting-max-losing-streak" type="number" min="1" step="1"></div>
+          <div class="row"><span class="label">紙自動処理</span><input id="setting-paper-auto-execute" type="checkbox"></div>
           <div class="row"><span class="label">実行前確認</span><input id="setting-require-confirmation" type="checkbox"></div>
           <div class="actions"><button onclick="saveMonitorSettings()">設定保存</button></div>
         </div>
@@ -381,6 +383,7 @@ HTML = r"""<!doctype html>
       document.getElementById('setting-max-daily-loss').value = settings.max_daily_loss ?? 10000;
       document.getElementById('setting-max-trades').value = settings.max_trades_per_day ?? 10;
       document.getElementById('setting-max-losing-streak').value = settings.max_losing_streak ?? 3;
+      document.getElementById('setting-paper-auto-execute').checked = settings.paper_auto_execute !== false;
       document.getElementById('setting-require-confirmation').checked = settings.require_confirmation !== false;
     }
     function renderCandidates(items) {
@@ -461,6 +464,7 @@ HTML = r"""<!doctype html>
         max_daily_loss: Number(document.getElementById('setting-max-daily-loss').value),
         max_trades_per_day: Number(document.getElementById('setting-max-trades').value),
         max_losing_streak: Number(document.getElementById('setting-max-losing-streak').value),
+        paper_auto_execute: document.getElementById('setting-paper-auto-execute').checked,
         require_confirmation: document.getElementById('setting-require-confirmation').checked
       };
       const msg = document.getElementById('message');
@@ -585,6 +589,7 @@ def monitor_settings() -> dict[str, object]:
     settings["max_trades_per_day"] = max(1, int(float(settings.get("max_trades_per_day", 10))))
     settings["max_losing_streak"] = max(1, int(float(settings.get("max_losing_streak", 3))))
     settings["require_confirmation"] = bool(settings.get("require_confirmation", True))
+    settings["paper_auto_execute"] = bool(settings.get("paper_auto_execute", True))
     return settings
 
 
@@ -606,6 +611,7 @@ def save_monitor_settings(values: dict[str, object]) -> dict[str, object]:
         "max_trades_per_day",
         "max_losing_streak",
         "require_confirmation",
+        "paper_auto_execute",
     ):
         if key in values:
             current[key] = values[key]
@@ -630,6 +636,7 @@ def monitor_settings_from_values(values: dict[str, object]) -> dict[str, object]
         "max_trades_per_day": max(1, int(float(values.get("max_trades_per_day", 10)))),
         "max_losing_streak": max(1, int(float(values.get("max_losing_streak", 3)))),
         "require_confirmation": bool(values.get("require_confirmation", True)),
+        "paper_auto_execute": bool(values.get("paper_auto_execute", True)),
     }
 
 
@@ -696,7 +703,17 @@ def start_monitor_process() -> dict[str, object]:
         str(settings["max_notional"]),
         "--lot-size",
         str(settings["lot_size"]),
+        "--max-daily-loss",
+        str(settings["max_daily_loss"]),
+        "--max-trades-per-day",
+        str(settings["max_trades_per_day"]),
+        "--max-losing-streak",
+        str(settings["max_losing_streak"]),
     ]
+    if settings["paper_auto_execute"]:
+        args.append("--paper-execute")
+    if not settings["require_confirmation"]:
+        args.append("--paper-no-confirmation-required")
     if settings["mode"] == "demo":
         args.extend(["--demo", "--fetched-at", "2026-07-08T09:12:00"])
 

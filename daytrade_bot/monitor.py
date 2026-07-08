@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from time import sleep
 
+from .paper_execution import execute_paper_orders
 from .scanner import main as scanner_main
 from .trade_plan import build_trade_plan
 from .yahoo_prices import update_prices
@@ -93,11 +94,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--demo-prices", type=Path, default=DATA_DIR / "latest_prices.csv")
     parser.add_argument("--update-prices", action="store_true")
     parser.add_argument("--trade-plan-output", type=Path, default=DATA_DIR / "trade_plan.csv")
+    parser.add_argument("--paper-execute", action="store_true")
+    parser.add_argument("--paper-positions", type=Path, default=DATA_DIR / "paper_positions.csv")
+    parser.add_argument("--paper-orders", type=Path, default=DATA_DIR / "paper_orders.csv")
+    parser.add_argument("--paper-state", type=Path, default=DATA_DIR / "paper_state.json")
+    parser.add_argument("--paper-confirmed", action="store_true")
+    parser.add_argument("--paper-no-confirmation-required", action="store_true")
     parser.add_argument("--min-score", type=float, default=2.2)
     parser.add_argument("--max-notional", type=float, default=500000.0)
     parser.add_argument("--lot-size", type=int, default=100)
     parser.add_argument("--stop-loss-pct", type=float, default=0.02)
     parser.add_argument("--take-profit-pct", type=float, default=0.04)
+    parser.add_argument("--max-daily-loss", type=float, default=10000.0)
+    parser.add_argument("--max-trades-per-day", type=int, default=10)
+    parser.add_argument("--max-losing-streak", type=int, default=3)
     parser.add_argument("--max-items", type=int, default=10)
     parser.add_argument("--delay", type=float, default=1.5)
     parser.add_argument("--retries", type=int, default=2)
@@ -131,10 +141,27 @@ def main() -> None:
                 args.stop_loss_pct,
                 args.take_profit_pct,
             )
+            paper_result: dict[str, object] = {}
+            if args.paper_execute:
+                paper_result = execute_paper_orders(
+                    args.trade_plan_output,
+                    args.prices,
+                    args.paper_positions,
+                    args.paper_orders,
+                    args.paper_state,
+                    args.paper_confirmed,
+                    not args.paper_no_confirmation_required,
+                    args.max_daily_loss,
+                    args.max_trades_per_day,
+                    args.max_losing_streak,
+                )
             write_status(
                 running=True,
                 trade_plan=count_csv_rows(args.trade_plan_output),
-                message="スキャンと注文案作成が完了しました",
+                paper_positions=count_csv_rows(args.paper_positions),
+                paper_orders=count_csv_rows(args.paper_orders),
+                paper_message=paper_result.get("message", ""),
+                message="スキャン、注文案、紙トレード処理が完了しました" if args.paper_execute else "スキャンと注文案作成が完了しました",
             )
             if args.once:
                 write_status(running=False, message="1回監視が完了しました")
