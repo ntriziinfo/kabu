@@ -18,4 +18,5 @@ data/runtime_prices.csv
 data/paper_positions.csv
 data/paper_orders.csv
 data/paper_state.json
+data/autopilot_report.json
 CONFIRM_PAPER_ORDERS
