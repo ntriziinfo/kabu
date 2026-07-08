@@ -10,3 +10,5 @@ data/yahoo_evidence.csv
 data/scan_evidence.csv
 data/candidates.csv
 data/scan_failures.csv
+data/monitor_status.json
+data/monitor.pid

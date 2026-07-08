@@ -83,6 +83,16 @@ waits between requests, deduplicates headlines, and writes fetch errors to
 C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.scanner --symbols data/symbols.csv --delay 1.5 --retries 2
 ```
 
+To run repeated monitoring from the command line:
+
+```powershell
+C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.monitor --symbols data/symbols.csv --demo --interval 60
+```
+
+The dashboard also has `Start monitor` and `Stop monitor` buttons. Monitoring
+updates candidates and writes status to `data/monitor_status.json`. Real orders
+are still disabled.
+
 ## Structure
 
 - `daytrade_bot/market.py` reads tick data.
@@ -92,6 +102,7 @@ C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\p
 - `daytrade_bot/evidence_backtest.py` replays evidence against market ticks.
 - `daytrade_bot/yahoo_finance.py` collects Yahoo Finance Japan news into evidence CSV.
 - `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
+- `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
 - `daytrade_bot/dashboard.py` serves a local browser dashboard.
 - `daytrade_bot/risk.py` blocks unsafe orders.
 - `daytrade_bot/broker.py` contains paper and live broker adapters.

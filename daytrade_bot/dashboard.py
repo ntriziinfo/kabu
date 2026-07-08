@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import signal
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,6 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 LOG_DIR = ROOT / "logs"
 STOP_FILE = ROOT / "STOP_TRADING"
+MONITOR_PID_FILE = DATA_DIR / "monitor.pid"
+MONITOR_STATUS_FILE = DATA_DIR / "monitor_status.json"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 
@@ -161,6 +165,8 @@ HTML = r"""<!doctype html>
       <button class="primary" onclick="postAction('/api/yahoo-demo')">Yahoo demo</button>
       <button class="primary" onclick="postAction('/api/scan-candidates')">Scan candidates</button>
       <button onclick="postAction('/api/live-scan-candidates')">Live scan</button>
+      <button class="primary" onclick="postAction('/api/start-monitor')">Start monitor</button>
+      <button onclick="postAction('/api/stop-monitor')">Stop monitor</button>
       <button class="primary" onclick="postAction('/api/backtest')">Backtest</button>
       <button class="danger" onclick="postAction('/api/stop')">Stop</button>
       <button onclick="postAction('/api/clear-stop')">Clear stop</button>
@@ -172,6 +178,8 @@ HTML = r"""<!doctype html>
         <div class="panel-title">System <span id="stop-pill" class="pill">...</span></div>
         <div class="panel-body stack">
           <div class="row"><span class="label">NetStock</span><span id="netstock" class="value">...</span></div>
+          <div class="row"><span class="label">Monitor</span><span id="monitor" class="value">...</span></div>
+          <div class="row"><span class="label">Last cycle</span><span id="monitor-cycle" class="value">...</span></div>
           <div class="row"><span class="label">Executable</span><span id="exe" class="value">...</span></div>
           <div class="row"><span class="label">Updated</span><span id="updated" class="value">...</span></div>
         </div>
@@ -232,6 +240,8 @@ HTML = r"""<!doctype html>
       const data = await res.json();
       document.getElementById('updated').textContent = data.updated_at;
       document.getElementById('netstock').textContent = data.netstock.is_running ? 'Running' : 'Not running';
+      document.getElementById('monitor').textContent = data.monitor.running ? `Running (${data.monitor.mode || 'unknown'})` : 'Stopped';
+      document.getElementById('monitor-cycle').textContent = data.monitor.last_cycle_at || data.monitor.message || '-';
       document.getElementById('exe').textContent = data.netstock.exe_exists ? data.netstock.exe_path : 'Not found';
       const stop = document.getElementById('stop-pill');
       stop.textContent = data.stop_trading ? 'Stopped' : 'Ready';
@@ -334,6 +344,90 @@ def run_module(module: str, args: list[str]) -> subprocess.CompletedProcess[str]
     )
 
 
+def read_json_file(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def read_monitor_pid() -> int | None:
+    if not MONITOR_PID_FILE.exists():
+        return None
+    try:
+        return int(MONITOR_PID_FILE.read_text(encoding="utf-8").strip())
+    except ValueError:
+        return None
+
+
+def is_pid_running(pid: int | None) -> bool:
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def start_monitor_process(demo: bool = True) -> dict[str, object]:
+    pid = read_monitor_pid()
+    if is_pid_running(pid):
+        return {"ok": True, "message": f"Monitor already running pid={pid}"}
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    args = [
+        sys.executable,
+        "-m",
+        "daytrade_bot.monitor",
+        "--symbols",
+        str(DATA_DIR / "symbols.csv"),
+        "--interval",
+        "60",
+        "--delay",
+        "1.5",
+        "--retries",
+        "2",
+        "--timeout",
+        "10",
+        "--evidence-output",
+        str(DATA_DIR / "scan_evidence.csv"),
+        "--candidates-output",
+        str(DATA_DIR / "candidates.csv"),
+        "--failures-output",
+        str(DATA_DIR / "scan_failures.csv"),
+    ]
+    if demo:
+        args.extend(["--demo", "--fetched-at", "2026-07-08T09:12:00"])
+
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    process = subprocess.Popen(
+        args,
+        cwd=ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=creationflags,
+    )
+    MONITOR_PID_FILE.write_text(str(process.pid), encoding="utf-8")
+    return {"ok": True, "message": f"Monitor started pid={process.pid}"}
+
+
+def stop_monitor_process() -> dict[str, object]:
+    pid = read_monitor_pid()
+    if not pid:
+        return {"ok": True, "message": "Monitor was not running"}
+    if is_pid_running(pid):
+        os.kill(pid, signal.SIGTERM)
+    if MONITOR_PID_FILE.exists():
+        MONITOR_PID_FILE.unlink()
+    status = read_json_file(MONITOR_STATUS_FILE)
+    status.update({"running": False, "message": "monitor stopped from dashboard"})
+    MONITOR_STATUS_FILE.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"ok": True, "message": f"Monitor stopped pid={pid}"}
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = urlparse(self.path).path
@@ -405,6 +499,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             self.send_json(command_response(result, "Live candidate scan finished"))
             return
+        if path == "/api/start-monitor":
+            self.send_json(start_monitor_process(demo=True))
+            return
+        if path == "/api/stop-monitor":
+            self.send_json(stop_monitor_process())
+            return
         if path == "/api/backtest":
             result = run_module(
                 "daytrade_bot.backtest",
@@ -458,6 +558,12 @@ def command_response(result: subprocess.CompletedProcess[str], success_message: 
 
 def build_state() -> dict[str, object]:
     status = get_status()
+    monitor_status = read_json_file(MONITOR_STATUS_FILE)
+    monitor_pid = read_monitor_pid()
+    monitor_running = is_pid_running(monitor_pid)
+    monitor_status["running"] = monitor_running
+    if monitor_pid:
+        monitor_status["pid"] = monitor_pid
     log_path = LOG_DIR / "dashboard_backtest_events.csv"
     if not log_path.exists():
         log_path = LOG_DIR / "yahoo_backtest_events.csv"
@@ -470,6 +576,7 @@ def build_state() -> dict[str, object]:
             "is_running": status.is_running,
             "exe_path": str(status.exe_path),
         },
+        "monitor": monitor_status,
         "summary": latest_summary(),
         "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
         "events": read_csv_rows(log_path, limit=14),
