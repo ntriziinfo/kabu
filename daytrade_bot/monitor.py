@@ -8,6 +8,7 @@ from time import sleep
 
 from .scanner import main as scanner_main
 from .trade_plan import build_trade_plan
+from .yahoo_prices import update_prices
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,6 +90,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--candidates-output", type=Path, default=DATA_DIR / "candidates.csv")
     parser.add_argument("--failures-output", type=Path, default=DATA_DIR / "scan_failures.csv")
     parser.add_argument("--prices", type=Path, default=DATA_DIR / "latest_prices.csv")
+    parser.add_argument("--demo-prices", type=Path, default=DATA_DIR / "latest_prices.csv")
+    parser.add_argument("--update-prices", action="store_true")
     parser.add_argument("--trade-plan-output", type=Path, default=DATA_DIR / "trade_plan.csv")
     parser.add_argument("--min-score", type=float, default=2.2)
     parser.add_argument("--max-notional", type=float, default=500000.0)
@@ -116,6 +119,8 @@ def main() -> None:
                 write_status(running=False, message="全停止フラグにより停止しました")
                 break
             run_scan_cycle(args)
+            if args.update_prices:
+                update_prices(args.symbols, args.prices, args.timeout, args.delay, demo=args.demo, demo_prices_path=args.demo_prices)
             build_trade_plan(
                 args.candidates_output,
                 args.prices,

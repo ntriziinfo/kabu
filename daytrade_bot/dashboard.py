@@ -22,6 +22,8 @@ STOP_FILE = ROOT / "STOP_TRADING"
 MONITOR_PID_FILE = DATA_DIR / "monitor.pid"
 MONITOR_STATUS_FILE = DATA_DIR / "monitor_status.json"
 MONITOR_SETTINGS_FILE = DATA_DIR / "monitor_settings.json"
+PRICE_FILE = DATA_DIR / "runtime_prices.csv"
+DEMO_PRICE_FILE = DATA_DIR / "latest_prices.csv"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_MONITOR_SETTINGS: dict[str, object] = {
@@ -192,6 +194,7 @@ HTML = r"""<!doctype html>
       <button class="primary" onclick="postAction('/api/yahoo-demo')">Yahooデモ取得</button>
       <button class="primary" onclick="postAction('/api/scan-candidates')">候補スキャン</button>
       <button onclick="postAction('/api/live-scan-candidates')">実データ取得</button>
+      <button onclick="postAction('/api/update-prices')">株価更新</button>
       <button class="primary" onclick="postAction('/api/build-trade-plan')">注文案作成</button>
       <button onclick="postAction('/api/confirm-paper-orders')">紙注文を確認</button>
       <button class="primary" onclick="postAction('/api/execute-paper-orders')">紙トレード実行</button>
@@ -243,6 +246,15 @@ HTML = r"""<!doctype html>
           <table>
             <thead><tr><th>時刻</th><th>銘柄</th><th>情報元</th><th>タイトル</th><th>信頼度</th></tr></thead>
             <tbody id="evidence"></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <div class="panel-title">最新株価</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>時刻</th><th>銘柄</th><th>名前</th><th>株価</th><th>取得元</th></tr></thead>
+            <tbody id="prices"></tbody>
           </table>
         </div>
       </section>
@@ -335,6 +347,7 @@ HTML = r"""<!doctype html>
       renderEvents(data.events);
       renderEvidence(data.evidence);
       renderFailures(data.failures);
+      renderPrices(data.prices);
       renderPaperMetrics(data.paper_state, data.paper_confirmation);
       renderPaperPositions(data.paper_positions);
       renderPaperOrders(data.paper_orders);
@@ -396,6 +409,11 @@ HTML = r"""<!doctype html>
     function renderFailures(items) {
       document.getElementById('failures').innerHTML = items.map(row => {
         return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${row.name}</td><td>${row.error}</td></tr>`;
+      }).join('');
+    }
+    function renderPrices(items) {
+      document.getElementById('prices').innerHTML = items.map(row => {
+        return `<tr><td>${row.timestamp || ''}</td><td>${row.symbol}</td><td>${row.name || ''}</td><td class="num">${row.price}</td><td>${translate(row.source || '')}</td></tr>`;
       }).join('');
     }
     function renderPaperMetrics(state, confirmation) {
@@ -485,6 +503,7 @@ HTML = r"""<!doctype html>
         take_profit: '利確',
         stop_loss: '損切り',
         trailing_stop: '追跡損切り',
+        yahoo: 'Yahoo',
         holding_position: '保有中',
         building_opening_range: '寄付きレンジ形成中',
         entry_window_closed: 'エントリー時間外',
@@ -661,9 +680,12 @@ def start_monitor_process() -> dict[str, object]:
         "--failures-output",
         str(DATA_DIR / "scan_failures.csv"),
         "--prices",
-        str(DATA_DIR / "latest_prices.csv"),
+        str(PRICE_FILE),
+        "--demo-prices",
+        str(DEMO_PRICE_FILE),
         "--trade-plan-output",
         str(DATA_DIR / "trade_plan.csv"),
+        "--update-prices",
         "--stop-loss-pct",
         str(settings["stop_loss_pct"]),
         "--take-profit-pct",
@@ -786,6 +808,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             self.send_json(command_response(result, "実データの候補スキャンが完了しました"))
             return
+        if path == "/api/update-prices":
+            settings = monitor_settings()
+            price_args = [
+                "--symbols",
+                str(DATA_DIR / "symbols.csv"),
+                "--output",
+                str(PRICE_FILE),
+                "--delay",
+                str(settings["delay"]),
+                "--timeout",
+                str(settings["timeout"]),
+            ]
+            if settings["mode"] == "demo":
+                price_args.extend(["--demo", "--demo-prices", str(DEMO_PRICE_FILE)])
+            result = run_module("daytrade_bot.yahoo_prices", price_args)
+            self.send_json(command_response(result, "株価を更新しました"))
+            return
         if path == "/api/build-trade-plan":
             settings = monitor_settings()
             result = run_module(
@@ -794,7 +833,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "--candidates",
                     str(DATA_DIR / "candidates.csv"),
                     "--prices",
-                    str(DATA_DIR / "latest_prices.csv"),
+                    str(PRICE_FILE),
                     "--output",
                     str(DATA_DIR / "trade_plan.csv"),
                     "--min-score",
@@ -823,8 +862,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             paper_args = [
                 "--trade-plan",
                 str(DATA_DIR / "trade_plan.csv"),
-                "--prices",
-                str(DATA_DIR / "latest_prices.csv"),
+                    "--prices",
+                    str(PRICE_FILE),
                 "--positions",
                 str(DATA_DIR / "paper_positions.csv"),
                 "--orders",
@@ -926,6 +965,7 @@ def build_state() -> dict[str, object]:
         "summary": latest_summary(),
         "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
         "trade_plan": read_csv_rows(DATA_DIR / "trade_plan.csv", limit=20),
+        "prices": read_csv_rows(PRICE_FILE if PRICE_FILE.exists() else DEMO_PRICE_FILE, limit=20),
         "paper_state": {
             "date": paper_state.get("date", "-"),
             "realized_pnl": paper_state.get("realized_pnl", 0),

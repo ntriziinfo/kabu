@@ -7,6 +7,7 @@ Paper-first intraday auto-trading system for Japanese equities.
 このプロジェクトは、まず安全な紙トレード用として作っています。実注文はまだ出しません。
 
 - Yahooファイナンスのニュース材料を取得します。
+- Yahooファイナンスから株価を更新します。
 - 材料の強弱を点数化します。
 - 銘柄ごとに買い・売り・見送り候補を作ります。
 - 候補から紙トレード用の注文案を作ります。
@@ -22,11 +23,13 @@ Paper-first intraday auto-trading system for Japanese equities.
 基本の流れ:
 
 1. `候補スキャン` でYahoo材料から売買候補を作ります。
-2. `注文案作成` で株数、損切り、利確、想定損失を出します。
-3. 内容を見て問題なければ `紙注文を確認` を押します。
-4. `紙トレード実行` で紙約定と保有履歴へ反映します。
+2. `株価更新` で注文案に使う株価を更新します。
+3. `注文案作成` で株数、損切り、利確、想定損失を出します。
+4. 内容を見て問題なければ `紙注文を確認` を押します。
+5. `紙トレード実行` で紙約定と保有履歴へ反映します。
 
 監視設定では、最低材料点、1銘柄上限、損切り%、利確%、日次損失上限、1日取引上限、連敗停止を変更できます。
+初期サンプル価格は `data/latest_prices.csv`、実行時の更新価格は `data/runtime_prices.csv` に保存されます。
 
 This repository starts with a paper-trading bot and a local NetStock High Speed
 integration boundary.
@@ -138,6 +141,7 @@ ready for paper execution. It does not send real orders.
 - `daytrade_bot/evidence.py` scores disclosure/news/social evidence.
 - `daytrade_bot/evidence_backtest.py` replays evidence against market ticks.
 - `daytrade_bot/yahoo_finance.py` collects Yahoo Finance Japan news into evidence CSV.
+- `daytrade_bot/yahoo_prices.py` updates quote prices from Yahoo Finance Japan.
 - `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
 - `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
 - `daytrade_bot/trade_plan.py` converts ranked candidates into paper order candidates.
