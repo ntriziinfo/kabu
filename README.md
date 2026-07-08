@@ -115,6 +115,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run_demo_cycle.ps1
 powershell -ExecutionPolicy Bypass -File scripts\doctor.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File scripts\check_market_test_ready.ps1
+powershell -ExecutionPolicy Bypass -File scripts\run_market_preopen_prepare.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_session.ps1
 powershell -ExecutionPolicy Bypass -File scripts\market_test_status.ps1
@@ -127,6 +128,7 @@ repository folder, run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_paper_autopilot.ps1
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_preopen_prepare.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_session.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\market_test_status.ps1
@@ -181,6 +183,13 @@ This uses live Yahoo Finance data, requires the JPX market to be open, confirms
 paper orders only, caps the paper notional at 300,000 yen per candidate, writes
 separate `data/market_*` files for the market test, and keeps real broker
 orders disabled.
+
+Before the open, you can warm up live Yahoo evidence, prices, candidates, and
+trade plans without executing paper orders:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_market_preopen_prepare.ps1
+```
 
 If you want to start before the open and let the system wait, run:
 

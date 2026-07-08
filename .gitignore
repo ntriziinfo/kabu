@@ -24,6 +24,7 @@ data/market_paper_positions.csv
 data/market_paper_orders.csv
 data/market_paper_state.json
 data/market_autopilot_report.json
+data/market_preopen_report.json
 data/market_runner_status.json
 data/market_runner_history.jsonl
 data/market_test_report.json

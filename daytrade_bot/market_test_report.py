@@ -67,6 +67,7 @@ def build_market_test_report(data_dir: Path = DATA_DIR) -> dict[str, object]:
         "runner_status": data_dir / "market_runner_status.json",
         "runner_history": data_dir / "market_runner_history.jsonl",
         "autopilot_report": data_dir / "market_autopilot_report.json",
+        "preopen_report": data_dir / "market_preopen_report.json",
         "evidence": data_dir / "market_scan_evidence.csv",
         "candidates": data_dir / "market_candidates.csv",
         "failures": data_dir / "market_scan_failures.csv",
@@ -78,6 +79,7 @@ def build_market_test_report(data_dir: Path = DATA_DIR) -> dict[str, object]:
     }
     runner_status = read_json(paths["runner_status"])
     autopilot_report = read_json(paths["autopilot_report"])
+    preopen_report = read_json(paths["preopen_report"])
     health = build_health_report(
         paths["failures"],
         paths["trade_plan"],
@@ -124,6 +126,7 @@ def build_market_test_report(data_dir: Path = DATA_DIR) -> dict[str, object]:
         },
         "runner_status": runner_status,
         "last_cycle": read_last_jsonl(paths["runner_history"]),
+        "last_preopen_report": preopen_report,
         "last_autopilot_report": autopilot_report,
         "counts": counts,
         "files": files,
