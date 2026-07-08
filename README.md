@@ -116,6 +116,7 @@ powershell -ExecutionPolicy Bypass -File scripts\doctor.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File scripts\check_market_test_ready.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_preopen_prepare.ps1
+powershell -ExecutionPolicy Bypass -File scripts\run_market_test_day.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_session.ps1
 powershell -ExecutionPolicy Bypass -File scripts\market_test_status.ps1
@@ -129,6 +130,7 @@ repository folder, run:
 ```powershell
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_preopen_prepare.ps1
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_test_day.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_session.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\market_test_status.ps1
@@ -189,6 +191,20 @@ trade plans without executing paper orders:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\run_market_preopen_prepare.ps1
+```
+
+For a one-command market-test day flow, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_market_test_day.ps1
+```
+
+This first performs the pre-open preparation, runs the system checks, then waits
+for the JPX session and starts the guarded paper-trading loop. To only run the
+pre-open preparation without starting the waiting session:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_market_test_day.ps1 -PrepareOnly
 ```
 
 If you want to start before the open and let the system wait, run:
