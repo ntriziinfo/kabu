@@ -1,0 +1,5 @@
+timestamp,symbol,source,title,body,url,confidence
+2026-07-08T09:12:00,7203,tdnet,上方修正に関するお知らせ,通期業績予想を上方修正し営業利益見通しを引き上げ,https://example.com/tdnet/7203/1,0.95
+2026-07-08T09:13:00,7203,news,大型受注を発表,北米向けに大型受注を獲得し来期売上への寄与を見込む,https://example.com/news/7203/1,0.85
+2026-07-08T09:17:00,7203,social,短期資金流入観測,出来高急増と買い気配を確認,https://example.com/social/7203/1,0.45
+2026-07-08T09:18:00,9984,news,一部報道を否定,会社側が報道内容を否定,https://example.com/news/9984/1,0.8
