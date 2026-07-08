@@ -116,6 +116,13 @@ powershell -ExecutionPolicy Bypass -File scripts\doctor.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_paper_autopilot.ps1
 ```
 
+If your terminal is currently at the Codex workspace root instead of this
+repository folder, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_paper_autopilot.ps1
+```
+
 To scan a symbol list and create ranked evidence candidates:
 
 ```powershell
