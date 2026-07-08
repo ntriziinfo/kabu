@@ -41,6 +41,8 @@ def build_trade_plan(
     min_score: float,
     max_notional: float,
     lot_size: int,
+    stop_loss_pct: float,
+    take_profit_pct: float,
 ) -> list[dict[str, str]]:
     candidates = read_csv(candidates_path)
     prices = read_prices(prices_path)
@@ -58,6 +60,14 @@ def build_trade_plan(
         price = prices.get(symbol)
         quantity = lot_quantity(price, max_notional, lot_size) if price is not None else 0
         status = "ready" if action == "buy" and score >= min_score and quantity > 0 else "blocked"
+        if status == "ready" and price is not None:
+            stop_loss_price = round(price * (1 - stop_loss_pct), 2)
+            take_profit_price = round(price * (1 + take_profit_pct), 2)
+            risk_amount = round((price - stop_loss_price) * quantity, 2)
+        else:
+            stop_loss_price = ""
+            take_profit_price = ""
+            risk_amount = ""
 
         if action != "buy":
             block_reason = "not_buy_candidate"
@@ -84,6 +94,9 @@ def build_trade_plan(
                 "quantity": str(quantity),
                 "max_notional": str(max_notional),
                 "estimated_notional": "" if price is None else str(round(price * quantity, 2)),
+                "stop_loss_price": str(stop_loss_price),
+                "take_profit_price": str(take_profit_price),
+                "risk_amount": str(risk_amount),
                 "reason": candidate.get("reason", ""),
                 "top_titles": candidate.get("top_titles", ""),
             }
@@ -107,6 +120,9 @@ def build_trade_plan(
                 "quantity",
                 "max_notional",
                 "estimated_notional",
+                "stop_loss_price",
+                "take_profit_price",
+                "risk_amount",
                 "reason",
                 "top_titles",
             ],
@@ -124,6 +140,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-score", type=float, default=2.2)
     parser.add_argument("--max-notional", type=float, default=500000.0)
     parser.add_argument("--lot-size", type=int, default=100)
+    parser.add_argument("--stop-loss-pct", type=float, default=0.02)
+    parser.add_argument("--take-profit-pct", type=float, default=0.04)
     return parser
 
 
@@ -136,6 +154,8 @@ def main() -> None:
         args.min_score,
         args.max_notional,
         args.lot_size,
+        args.stop_loss_pct,
+        args.take_profit_pct,
     )
     ready_count = sum(1 for row in rows if row["status"] == "ready")
     print(f"wrote {len(rows)} trade plan rows, ready {ready_count}")
@@ -143,4 +163,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -2,6 +2,19 @@
 
 Paper-first intraday auto-trading system for Japanese equities.
 
+## 現在できること
+
+このプロジェクトは、まず安全な紙トレード用として作っています。実注文はまだ出しません。
+
+- Yahooファイナンスのニュース材料を取得します。
+- 材料の強弱を点数化します。
+- 銘柄ごとに買い・売り・見送り候補を作ります。
+- 候補から紙トレード用の注文案を作ります。
+- 注文案には株数、概算金額、損切り価格、利確価格、想定損失を出します。
+- ダッシュボードは `http://127.0.0.1:8765/` で確認できます。
+
+次に実運用へ近づける場合は、損切り、利確、1日の最大損失、連敗停止、注文前確認をさらに固めます。
+
 This repository starts with a paper-trading bot and a local NetStock High Speed
 integration boundary.
 
@@ -100,9 +113,9 @@ To build a paper trade plan from ranked candidates:
 C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.trade_plan --candidates data/candidates.csv --prices data/latest_prices.csv
 ```
 
-The trade plan uses a minimum evidence score, max notional, and 100-share lot
-size to decide whether a candidate is ready for paper execution. It does not
-send real orders.
+The trade plan uses a minimum evidence score, max notional, 100-share lot size,
+stop-loss percent, and take-profit percent to decide whether a candidate is
+ready for paper execution. It does not send real orders.
 
 ## Structure
 

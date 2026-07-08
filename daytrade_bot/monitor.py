@@ -78,7 +78,7 @@ def run_scan_cycle(args: argparse.Namespace) -> None:
         evidence=count_csv_rows(args.evidence_output),
         failures=count_csv_rows(args.failures_output),
         trade_plan=count_csv_rows(args.trade_plan_output),
-        message="scan cycle finished",
+        message="スキャン完了",
     )
 
 
@@ -93,6 +93,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-score", type=float, default=2.2)
     parser.add_argument("--max-notional", type=float, default=500000.0)
     parser.add_argument("--lot-size", type=int, default=100)
+    parser.add_argument("--stop-loss-pct", type=float, default=0.02)
+    parser.add_argument("--take-profit-pct", type=float, default=0.04)
     parser.add_argument("--max-items", type=int, default=10)
     parser.add_argument("--delay", type=float, default=1.5)
     parser.add_argument("--retries", type=int, default=2)
@@ -106,12 +108,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    write_status(running=True, mode="demo" if args.demo else "live", message="monitor started")
+    write_status(running=True, mode="demo" if args.demo else "live", message="監視を開始しました")
 
     try:
         while True:
             if STOP_FILE.exists():
-                write_status(running=False, message="stopped by STOP_TRADING")
+                write_status(running=False, message="全停止フラグにより停止しました")
                 break
             run_scan_cycle(args)
             build_trade_plan(
@@ -121,21 +123,23 @@ def main() -> None:
                 args.min_score,
                 args.max_notional,
                 args.lot_size,
+                args.stop_loss_pct,
+                args.take_profit_pct,
             )
             write_status(
                 running=True,
                 trade_plan=count_csv_rows(args.trade_plan_output),
-                message="scan and trade plan cycle finished",
+                message="スキャンと注文案作成が完了しました",
             )
             if args.once:
-                write_status(running=False, message="one-shot monitor finished")
+                write_status(running=False, message="1回監視が完了しました")
                 break
             sleep(max(1.0, args.interval))
     except KeyboardInterrupt:
-        write_status(running=False, message="monitor interrupted")
+        write_status(running=False, message="監視が中断されました")
         raise
     except Exception as exc:
-        write_status(running=False, message=f"monitor error: {exc}")
+        write_status(running=False, message=f"監視エラー: {exc}")
         raise
 
 

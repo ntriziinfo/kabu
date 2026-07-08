@@ -33,11 +33,11 @@ DEFAULT_MONITOR_SETTINGS: dict[str, object] = {
 
 
 HTML = r"""<!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>kabu dashboard</title>
+  <title>株 自動売買ダッシュボード</title>
   <style>
     :root {
       --bg: #f6f7f9;
@@ -177,60 +177,60 @@ HTML = r"""<!doctype html>
 </head>
 <body>
   <header>
-    <h1>kabu dashboard</h1>
+    <h1>株 自動売買ダッシュボード</h1>
     <div class="actions">
-      <button class="primary" onclick="postAction('/api/yahoo-demo')">Yahoo demo</button>
-      <button class="primary" onclick="postAction('/api/scan-candidates')">Scan candidates</button>
-      <button onclick="postAction('/api/live-scan-candidates')">Live scan</button>
-      <button class="primary" onclick="postAction('/api/build-trade-plan')">Build trade plan</button>
-      <button class="primary" onclick="postAction('/api/start-monitor')">Start monitor</button>
-      <button onclick="postAction('/api/stop-monitor')">Stop monitor</button>
-      <button class="primary" onclick="postAction('/api/backtest')">Backtest</button>
-      <button class="danger" onclick="postAction('/api/stop')">Stop</button>
-      <button onclick="postAction('/api/clear-stop')">Clear stop</button>
+      <button class="primary" onclick="postAction('/api/yahoo-demo')">Yahooデモ取得</button>
+      <button class="primary" onclick="postAction('/api/scan-candidates')">候補スキャン</button>
+      <button onclick="postAction('/api/live-scan-candidates')">実データ取得</button>
+      <button class="primary" onclick="postAction('/api/build-trade-plan')">注文案作成</button>
+      <button class="primary" onclick="postAction('/api/start-monitor')">監視開始</button>
+      <button onclick="postAction('/api/stop-monitor')">監視停止</button>
+      <button class="primary" onclick="postAction('/api/backtest')">検証実行</button>
+      <button class="danger" onclick="postAction('/api/stop')">全停止</button>
+      <button onclick="postAction('/api/clear-stop')">停止解除</button>
     </div>
   </header>
   <main>
     <div class="stack">
       <section>
-        <div class="panel-title">System <span id="stop-pill" class="pill">...</span></div>
+        <div class="panel-title">システム <span id="stop-pill" class="pill">...</span></div>
         <div class="panel-body stack">
           <div class="row"><span class="label">NetStock</span><span id="netstock" class="value">...</span></div>
-          <div class="row"><span class="label">Monitor</span><span id="monitor" class="value">...</span></div>
-          <div class="row"><span class="label">Last cycle</span><span id="monitor-cycle" class="value">...</span></div>
-          <div class="row"><span class="label">Executable</span><span id="exe" class="value">...</span></div>
-          <div class="row"><span class="label">Updated</span><span id="updated" class="value">...</span></div>
+          <div class="row"><span class="label">監視</span><span id="monitor" class="value">...</span></div>
+          <div class="row"><span class="label">最終更新</span><span id="monitor-cycle" class="value">...</span></div>
+          <div class="row"><span class="label">実行ファイル</span><span id="exe" class="value">...</span></div>
+          <div class="row"><span class="label">画面更新</span><span id="updated" class="value">...</span></div>
         </div>
       </section>
       <section>
-        <div class="panel-title">Action log</div>
-        <div class="panel-body"><code id="message">ready</code></div>
+        <div class="panel-title">操作ログ</div>
+        <div class="panel-body"><code id="message">準備完了</code></div>
       </section>
       <section>
-        <div class="panel-title">Monitor settings</div>
+        <div class="panel-title">監視設定</div>
         <div class="panel-body stack">
-          <div class="row"><span class="label">Mode</span><select id="setting-mode"><option value="demo">demo</option><option value="live">live</option></select></div>
-          <div class="row"><span class="label">Interval sec</span><input id="setting-interval" type="number" min="10" step="5"></div>
-          <div class="row"><span class="label">Delay sec</span><input id="setting-delay" type="number" min="0" step="0.5"></div>
-          <div class="row"><span class="label">Retries</span><input id="setting-retries" type="number" min="0" step="1"></div>
-          <div class="row"><span class="label">Timeout sec</span><input id="setting-timeout" type="number" min="3" step="1"></div>
-          <div class="actions"><button onclick="saveMonitorSettings()">Save settings</button></div>
+          <div class="row"><span class="label">モード</span><select id="setting-mode"><option value="demo">デモ</option><option value="live">実データ</option></select></div>
+          <div class="row"><span class="label">監視間隔 秒</span><input id="setting-interval" type="number" min="10" step="5"></div>
+          <div class="row"><span class="label">取得待ち 秒</span><input id="setting-delay" type="number" min="0" step="0.5"></div>
+          <div class="row"><span class="label">再試行</span><input id="setting-retries" type="number" min="0" step="1"></div>
+          <div class="row"><span class="label">タイムアウト 秒</span><input id="setting-timeout" type="number" min="3" step="1"></div>
+          <div class="actions"><button onclick="saveMonitorSettings()">設定保存</button></div>
         </div>
       </section>
       <section>
-        <div class="panel-title">Evidence</div>
+        <div class="panel-title">根拠ニュース</div>
         <div class="panel-body">
           <table>
-            <thead><tr><th>Time</th><th>Symbol</th><th>Source</th><th>Title</th><th>Confidence</th></tr></thead>
+            <thead><tr><th>時刻</th><th>銘柄</th><th>情報元</th><th>タイトル</th><th>信頼度</th></tr></thead>
             <tbody id="evidence"></tbody>
           </table>
         </div>
       </section>
       <section>
-        <div class="panel-title">Fetch failures</div>
+        <div class="panel-title">取得失敗</div>
         <div class="panel-body">
           <table>
-            <thead><tr><th>Time</th><th>Symbol</th><th>Name</th><th>Error</th></tr></thead>
+            <thead><tr><th>時刻</th><th>銘柄</th><th>名前</th><th>エラー</th></tr></thead>
             <tbody id="failures"></tbody>
           </table>
         </div>
@@ -238,34 +238,34 @@ HTML = r"""<!doctype html>
     </div>
     <div class="stack">
       <section>
-        <div class="panel-title">Backtest summary</div>
+        <div class="panel-title">検証結果</div>
         <div class="panel-body">
           <div class="grid" id="metrics"></div>
         </div>
       </section>
       <section>
-        <div class="panel-title">Candidates</div>
+        <div class="panel-title">売買候補</div>
         <div class="panel-body">
           <table>
-            <thead><tr><th>Symbol</th><th>Name</th><th>Action</th><th>Score</th><th>Items</th><th>Reason</th><th>Top titles</th></tr></thead>
+            <thead><tr><th>銘柄</th><th>名前</th><th>判断</th><th>点数</th><th>件数</th><th>理由</th><th>主な材料</th></tr></thead>
             <tbody id="candidates"></tbody>
           </table>
         </div>
       </section>
       <section>
-        <div class="panel-title">Trade plan</div>
+        <div class="panel-title">注文案</div>
         <div class="panel-body">
           <table>
-            <thead><tr><th>Symbol</th><th>Name</th><th>Status</th><th>Side</th><th>Score</th><th>Price</th><th>Qty</th><th>Notional</th><th>Block</th></tr></thead>
+            <thead><tr><th>銘柄</th><th>名前</th><th>状態</th><th>売買</th><th>点数</th><th>株価</th><th>数量</th><th>概算金額</th><th>損切り</th><th>利確</th><th>想定損失</th><th>制限理由</th></tr></thead>
             <tbody id="trade-plan"></tbody>
           </table>
         </div>
       </section>
       <section>
-        <div class="panel-title">Recent signals</div>
+        <div class="panel-title">最近のシグナル</div>
         <div class="panel-body">
           <table>
-            <thead><tr><th>Time</th><th>Symbol</th><th>Event</th><th>Action</th><th>Reason</th><th>Evidence</th></tr></thead>
+            <thead><tr><th>時刻</th><th>銘柄</th><th>イベント</th><th>判断</th><th>理由</th><th>根拠点</th></tr></thead>
             <tbody id="events"></tbody>
           </table>
         </div>
@@ -277,13 +277,13 @@ HTML = r"""<!doctype html>
       const res = await fetch('/api/state');
       const data = await res.json();
       document.getElementById('updated').textContent = data.updated_at;
-      document.getElementById('netstock').textContent = data.netstock.is_running ? 'Running' : 'Not running';
-      document.getElementById('monitor').textContent = data.monitor.running ? `Running (${data.monitor.mode || 'unknown'})` : 'Stopped';
+      document.getElementById('netstock').textContent = data.netstock.is_running ? '起動中' : '未起動';
+      document.getElementById('monitor').textContent = data.monitor.running ? `監視中 (${translate(data.monitor.mode || 'unknown')})` : '停止中';
       document.getElementById('monitor-cycle').textContent = data.monitor.last_cycle_at || data.monitor.message || '-';
       renderSettings(data.settings);
-      document.getElementById('exe').textContent = data.netstock.exe_exists ? data.netstock.exe_path : 'Not found';
+      document.getElementById('exe').textContent = data.netstock.exe_exists ? data.netstock.exe_path : '見つかりません';
       const stop = document.getElementById('stop-pill');
-      stop.textContent = data.stop_trading ? 'Stopped' : 'Ready';
+      stop.textContent = data.stop_trading ? '停止中' : '稼働可';
       stop.className = 'pill ' + (data.stop_trading ? 'sell' : 'buy');
       renderMetrics(data.summary);
       renderCandidates(data.candidates);
@@ -294,14 +294,14 @@ HTML = r"""<!doctype html>
     }
     function renderMetrics(summary) {
       const labels = {
-        closed_trades: 'Closed trades',
-        wins: 'Wins',
-        losses: 'Losses',
-        win_rate_pct: 'Win rate',
-        realized_pnl: 'Realized PnL',
-        average_win: 'Average win',
-        average_loss: 'Average loss',
-        max_drawdown: 'Max DD'
+        closed_trades: '決済数',
+        wins: '勝ち',
+        losses: '負け',
+        win_rate_pct: '勝率',
+        realized_pnl: '損益',
+        average_win: '平均利益',
+        average_loss: '平均損失',
+        max_drawdown: '最大下落'
       };
       document.getElementById('metrics').innerHTML = Object.entries(labels).map(([key, label]) => {
         const value = summary[key] ?? 0;
@@ -318,19 +318,19 @@ HTML = r"""<!doctype html>
     function renderCandidates(items) {
       document.getElementById('candidates').innerHTML = items.map(row => {
         const cls = row.action === 'buy' ? 'buy' : row.action === 'sell' ? 'sell' : '';
-        return `<tr><td>${row.symbol}</td><td>${row.name}</td><td><span class="pill ${cls}">${row.action}</span></td><td class="num">${row.score}</td><td class="num">${row.evidence_count}</td><td>${row.reason}</td><td>${row.top_titles}</td></tr>`;
+        return `<tr><td>${row.symbol}</td><td>${row.name}</td><td><span class="pill ${cls}">${translate(row.action)}</span></td><td class="num">${row.score}</td><td class="num">${row.evidence_count}</td><td>${translate(row.reason)}</td><td>${row.top_titles}</td></tr>`;
       }).join('');
     }
     function renderTradePlan(items) {
       document.getElementById('trade-plan').innerHTML = items.map(row => {
         const cls = row.status === 'ready' ? 'buy' : 'warn';
-        return `<tr><td>${row.symbol}</td><td>${row.name}</td><td><span class="pill ${cls}">${row.status}</span></td><td>${row.side}</td><td class="num">${row.score}</td><td class="num">${row.price}</td><td class="num">${row.quantity}</td><td class="num">${row.estimated_notional}</td><td>${row.block_reason}</td></tr>`;
+        return `<tr><td>${row.symbol}</td><td>${row.name}</td><td><span class="pill ${cls}">${translate(row.status)}</span></td><td>${translate(row.side)}</td><td class="num">${row.score}</td><td class="num">${row.price}</td><td class="num">${row.quantity}</td><td class="num">${row.estimated_notional}</td><td class="num">${row.stop_loss_price || ''}</td><td class="num">${row.take_profit_price || ''}</td><td class="num">${row.risk_amount || ''}</td><td>${translate(row.block_reason)}</td></tr>`;
       }).join('');
     }
     function renderEvents(events) {
       document.getElementById('events').innerHTML = events.map(row => {
         const cls = row.action === 'buy' ? 'buy' : row.action === 'sell' ? 'sell' : '';
-        return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${row.event}</td><td><span class="pill ${cls}">${row.action || row.side || '-'}</span></td><td>${row.reason || ''}</td><td class="num">${row.evidence_score || row.score || ''}</td></tr>`;
+        return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${translate(row.event)}</td><td><span class="pill ${cls}">${translate(row.action || row.side || '-')}</span></td><td>${translate(row.reason || '')}</td><td class="num">${row.evidence_score || row.score || ''}</td></tr>`;
       }).join('');
     }
     function renderEvidence(items) {
@@ -345,7 +345,7 @@ HTML = r"""<!doctype html>
     }
     async function postAction(path) {
       const msg = document.getElementById('message');
-      msg.textContent = 'running ' + path;
+      msg.textContent = '実行中: ' + path;
       const res = await fetch(path, { method: 'POST' });
       const data = await res.json();
       msg.textContent = data.message || JSON.stringify(data);
@@ -360,7 +360,7 @@ HTML = r"""<!doctype html>
         timeout: Number(document.getElementById('setting-timeout').value)
       };
       const msg = document.getElementById('message');
-      msg.textContent = 'saving settings';
+      msg.textContent = '設定を保存中';
       const res = await fetch('/api/save-monitor-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -369,6 +369,44 @@ HTML = r"""<!doctype html>
       const data = await res.json();
       msg.textContent = data.message || JSON.stringify(data);
       await loadState();
+    }
+    function translate(value) {
+      const labels = {
+        demo: 'デモ',
+        live: '実データ',
+        unknown: '不明',
+        buy: '買い',
+        sell: '売り',
+        hold: '見送り',
+        ready: '発注候補',
+        blocked: '見送り',
+        ok: '問題なし',
+        not_buy_candidate: '買い候補ではない',
+        score_below_threshold: '点数不足',
+        missing_price: '株価未取得',
+        max_notional_too_low: '資金上限不足',
+        positive_evidence_cluster: '好材料が集中',
+        negative_evidence_cluster: '悪材料が集中',
+        insufficient_evidence_score: '材料点が不足',
+        price_signal: '価格シグナル',
+        evidence_signal: '材料シグナル',
+        combined_signal: '総合判断',
+        risk_check: 'リスク確認',
+        fill: '約定',
+        blocked_by_insufficient_evidence: '材料不足で見送り',
+        opening_range_vwap_volume_breakout: '寄付き高値・VWAP・出来高を突破',
+        force_exit_before_close: '引け前の強制決済',
+        take_profit: '利確',
+        stop_loss: '損切り',
+        trailing_stop: '追跡損切り',
+        holding_position: '保有中',
+        building_opening_range: '寄付きレンジ形成中',
+        entry_window_closed: 'エントリー時間外',
+        one_trade_limit: '1銘柄1回制限',
+        insufficient_session_stats: '場中データ不足',
+        no_edge: '優位性なし'
+      };
+      return labels[value] || value || '';
     }
     loadState();
     setInterval(loadState, 5000);
@@ -479,7 +517,7 @@ def is_pid_running(pid: int | None) -> bool:
 def start_monitor_process() -> dict[str, object]:
     pid = read_monitor_pid()
     if is_pid_running(pid):
-        return {"ok": True, "message": f"Monitor already running pid={pid}"}
+        return {"ok": True, "message": f"監視はすでに起動中です pid={pid}"}
 
     settings = monitor_settings()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -507,6 +545,10 @@ def start_monitor_process() -> dict[str, object]:
         str(DATA_DIR / "latest_prices.csv"),
         "--trade-plan-output",
         str(DATA_DIR / "trade_plan.csv"),
+        "--stop-loss-pct",
+        "0.02",
+        "--take-profit-pct",
+        "0.04",
     ]
     if settings["mode"] == "demo":
         args.extend(["--demo", "--fetched-at", "2026-07-08T09:12:00"])
@@ -520,21 +562,21 @@ def start_monitor_process() -> dict[str, object]:
         creationflags=creationflags,
     )
     MONITOR_PID_FILE.write_text(str(process.pid), encoding="utf-8")
-    return {"ok": True, "message": f"Monitor started pid={process.pid} mode={settings['mode']}"}
+    return {"ok": True, "message": f"監視を開始しました pid={process.pid} mode={settings['mode']}"}
 
 
 def stop_monitor_process() -> dict[str, object]:
     pid = read_monitor_pid()
     if not pid:
-        return {"ok": True, "message": "Monitor was not running"}
+        return {"ok": True, "message": "監視は起動していません"}
     if is_pid_running(pid):
         os.kill(pid, signal.SIGTERM)
     if MONITOR_PID_FILE.exists():
         MONITOR_PID_FILE.unlink()
     status = read_json_file(MONITOR_STATUS_FILE)
-    status.update({"running": False, "message": "monitor stopped from dashboard"})
+    status.update({"running": False, "message": "ダッシュボードから監視停止"})
     MONITOR_STATUS_FILE.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"ok": True, "message": f"Monitor stopped pid={pid}"}
+    return {"ok": True, "message": f"監視を停止しました pid={pid}"}
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -556,10 +598,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             try:
                 values = json.loads(raw_body)
             except json.JSONDecodeError:
-                self.send_json({"ok": False, "message": "Invalid JSON"})
+                self.send_json({"ok": False, "message": "設定データが不正です"})
                 return
             settings = save_monitor_settings(values)
-            self.send_json({"ok": True, "message": "Monitor settings saved", "settings": settings})
+            self.send_json({"ok": True, "message": "監視設定を保存しました", "settings": settings})
             return
         if path == "/api/yahoo-demo":
             result = run_module(
@@ -576,7 +618,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     str(DATA_DIR / "yahoo_evidence.csv"),
                 ],
             )
-            self.send_json(command_response(result, "Yahoo evidence updated"))
+            self.send_json(command_response(result, "Yahoo材料を更新しました"))
             return
         if path == "/api/scan-candidates":
             result = run_module(
@@ -595,7 +637,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     str(DATA_DIR / "scan_failures.csv"),
                 ],
             )
-            self.send_json(command_response(result, "Candidate scan finished"))
+            self.send_json(command_response(result, "候補スキャンが完了しました"))
             return
         if path == "/api/live-scan-candidates":
             result = run_module(
@@ -617,7 +659,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     str(DATA_DIR / "scan_failures.csv"),
                 ],
             )
-            self.send_json(command_response(result, "Live candidate scan finished"))
+            self.send_json(command_response(result, "実データの候補スキャンが完了しました"))
             return
         if path == "/api/build-trade-plan":
             result = run_module(
@@ -635,9 +677,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "500000",
                     "--lot-size",
                     "100",
+                    "--stop-loss-pct",
+                    "0.02",
+                    "--take-profit-pct",
+                    "0.04",
                 ],
             )
-            self.send_json(command_response(result, "Trade plan built"))
+            self.send_json(command_response(result, "注文案を作成しました"))
             return
         if path == "/api/start-monitor":
             self.send_json(start_monitor_process())
@@ -657,16 +703,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     str(LOG_DIR / "dashboard_backtest_events.csv"),
                 ],
             )
-            self.send_json(command_response(result, "Backtest finished"))
+            self.send_json(command_response(result, "検証が完了しました"))
             return
         if path == "/api/stop":
             STOP_FILE.write_text("stop requested from dashboard\n", encoding="utf-8")
-            self.send_json({"ok": True, "message": "STOP_TRADING created"})
+            self.send_json({"ok": True, "message": "全停止フラグを作成しました"})
             return
         if path == "/api/clear-stop":
             if STOP_FILE.exists():
                 STOP_FILE.unlink()
-            self.send_json({"ok": True, "message": "STOP_TRADING cleared"})
+            self.send_json({"ok": True, "message": "全停止フラグを解除しました"})
             return
         self.send_error(404)
 
@@ -693,7 +739,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 def command_response(result: subprocess.CompletedProcess[str], success_message: str) -> dict[str, object]:
     if result.returncode == 0:
         return {"ok": True, "message": success_message, "stdout": result.stdout}
-    return {"ok": False, "message": result.stderr or result.stdout or "command failed"}
+    return {"ok": False, "message": result.stderr or result.stdout or "コマンドに失敗しました"}
 
 
 def build_state() -> dict[str, object]:
