@@ -106,6 +106,14 @@ To run the automated tests:
 C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m unittest discover -s tests
 ```
 
+Shortcut scripts are also available:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start_dashboard.ps1
+powershell -ExecutionPolicy Bypass -File scripts\run_tests.ps1
+powershell -ExecutionPolicy Bypass -File scripts\run_demo_cycle.ps1
+```
+
 To scan a symbol list and create ranked evidence candidates:
 
 ```powershell
