@@ -14,3 +14,7 @@ data/monitor_status.json
 data/monitor.pid
 data/monitor_settings.json
 data/trade_plan.csv
+data/paper_positions.csv
+data/paper_orders.csv
+data/paper_state.json
+CONFIRM_PAPER_ORDERS

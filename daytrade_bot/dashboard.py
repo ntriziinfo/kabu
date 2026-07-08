@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 from .backtest import summarize
 from .netstock_highspeed import get_status
+from .paper_execution import CONFIRM_FILE
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +30,15 @@ DEFAULT_MONITOR_SETTINGS: dict[str, object] = {
     "delay": 1.5,
     "retries": 2,
     "timeout": 10,
+    "min_score": 2.2,
+    "max_notional": 500000,
+    "lot_size": 100,
+    "stop_loss_pct": 0.02,
+    "take_profit_pct": 0.04,
+    "max_daily_loss": 10000,
+    "max_trades_per_day": 10,
+    "max_losing_streak": 3,
+    "require_confirmation": True,
 }
 
 
@@ -183,6 +193,8 @@ HTML = r"""<!doctype html>
       <button class="primary" onclick="postAction('/api/scan-candidates')">候補スキャン</button>
       <button onclick="postAction('/api/live-scan-candidates')">実データ取得</button>
       <button class="primary" onclick="postAction('/api/build-trade-plan')">注文案作成</button>
+      <button onclick="postAction('/api/confirm-paper-orders')">紙注文を確認</button>
+      <button class="primary" onclick="postAction('/api/execute-paper-orders')">紙トレード実行</button>
       <button class="primary" onclick="postAction('/api/start-monitor')">監視開始</button>
       <button onclick="postAction('/api/stop-monitor')">監視停止</button>
       <button class="primary" onclick="postAction('/api/backtest')">検証実行</button>
@@ -214,6 +226,14 @@ HTML = r"""<!doctype html>
           <div class="row"><span class="label">取得待ち 秒</span><input id="setting-delay" type="number" min="0" step="0.5"></div>
           <div class="row"><span class="label">再試行</span><input id="setting-retries" type="number" min="0" step="1"></div>
           <div class="row"><span class="label">タイムアウト 秒</span><input id="setting-timeout" type="number" min="3" step="1"></div>
+          <div class="row"><span class="label">最低材料点</span><input id="setting-min-score" type="number" min="0" step="0.1"></div>
+          <div class="row"><span class="label">1銘柄上限 円</span><input id="setting-max-notional" type="number" min="10000" step="10000"></div>
+          <div class="row"><span class="label">損切り %</span><input id="setting-stop-loss-pct" type="number" min="0.1" step="0.1"></div>
+          <div class="row"><span class="label">利確 %</span><input id="setting-take-profit-pct" type="number" min="0.1" step="0.1"></div>
+          <div class="row"><span class="label">日次損失上限 円</span><input id="setting-max-daily-loss" type="number" min="1000" step="1000"></div>
+          <div class="row"><span class="label">1日取引上限</span><input id="setting-max-trades" type="number" min="1" step="1"></div>
+          <div class="row"><span class="label">連敗停止</span><input id="setting-max-losing-streak" type="number" min="1" step="1"></div>
+          <div class="row"><span class="label">実行前確認</span><input id="setting-require-confirmation" type="checkbox"></div>
           <div class="actions"><button onclick="saveMonitorSettings()">設定保存</button></div>
         </div>
       </section>
@@ -270,6 +290,30 @@ HTML = r"""<!doctype html>
           </table>
         </div>
       </section>
+      <section>
+        <div class="panel-title">紙トレード状況</div>
+        <div class="panel-body">
+          <div class="grid" id="paper-metrics"></div>
+        </div>
+      </section>
+      <section>
+        <div class="panel-title">保有中の紙ポジション</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>銘柄</th><th>名前</th><th>数量</th><th>建値</th><th>損切り</th><th>利確</th><th>想定損失</th><th>理由</th></tr></thead>
+            <tbody id="paper-positions"></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <div class="panel-title">紙トレード履歴</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>時刻</th><th>銘柄</th><th>名前</th><th>売買</th><th>状態</th><th>数量</th><th>価格</th><th>損益</th><th>理由</th></tr></thead>
+            <tbody id="paper-orders"></tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </main>
   <script>
@@ -291,6 +335,9 @@ HTML = r"""<!doctype html>
       renderEvents(data.events);
       renderEvidence(data.evidence);
       renderFailures(data.failures);
+      renderPaperMetrics(data.paper_state, data.paper_confirmation);
+      renderPaperPositions(data.paper_positions);
+      renderPaperOrders(data.paper_orders);
     }
     function renderMetrics(summary) {
       const labels = {
@@ -314,6 +361,14 @@ HTML = r"""<!doctype html>
       document.getElementById('setting-delay').value = settings.delay ?? 1.5;
       document.getElementById('setting-retries').value = settings.retries ?? 2;
       document.getElementById('setting-timeout').value = settings.timeout ?? 10;
+      document.getElementById('setting-min-score').value = settings.min_score ?? 2.2;
+      document.getElementById('setting-max-notional').value = settings.max_notional ?? 500000;
+      document.getElementById('setting-stop-loss-pct').value = Math.round((settings.stop_loss_pct ?? 0.02) * 1000) / 10;
+      document.getElementById('setting-take-profit-pct').value = Math.round((settings.take_profit_pct ?? 0.04) * 1000) / 10;
+      document.getElementById('setting-max-daily-loss').value = settings.max_daily_loss ?? 10000;
+      document.getElementById('setting-max-trades').value = settings.max_trades_per_day ?? 10;
+      document.getElementById('setting-max-losing-streak').value = settings.max_losing_streak ?? 3;
+      document.getElementById('setting-require-confirmation').checked = settings.require_confirmation !== false;
     }
     function renderCandidates(items) {
       document.getElementById('candidates').innerHTML = items.map(row => {
@@ -343,6 +398,29 @@ HTML = r"""<!doctype html>
         return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${row.name}</td><td>${row.error}</td></tr>`;
       }).join('');
     }
+    function renderPaperMetrics(state, confirmation) {
+      const rows = [
+        ['日付', state.date || '-'],
+        ['実現損益', state.realized_pnl ?? 0],
+        ['取引数', state.trade_count ?? 0],
+        ['連敗数', state.losing_streak ?? 0],
+        ['確認状態', confirmation ? '確認済み' : '未確認'],
+        ['状態', state.last_message || '-']
+      ];
+      document.getElementById('paper-metrics').innerHTML = rows.map(([label, value]) => {
+        return `<div class="metric"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+      }).join('');
+    }
+    function renderPaperPositions(items) {
+      document.getElementById('paper-positions').innerHTML = items.map(row => {
+        return `<tr><td>${row.symbol}</td><td>${row.name}</td><td class="num">${row.quantity}</td><td class="num">${row.entry_price}</td><td class="num">${row.stop_loss_price}</td><td class="num">${row.take_profit_price}</td><td class="num">${row.risk_amount}</td><td>${translate(row.reason)}</td></tr>`;
+      }).join('');
+    }
+    function renderPaperOrders(items) {
+      document.getElementById('paper-orders').innerHTML = items.map(row => {
+        return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${row.name}</td><td>${row.side}</td><td>${row.status}</td><td class="num">${row.quantity}</td><td class="num">${row.price}</td><td class="num">${row.realized_pnl}</td><td>${translate(row.reason)}</td></tr>`;
+      }).join('');
+    }
     async function postAction(path) {
       const msg = document.getElementById('message');
       msg.textContent = '実行中: ' + path;
@@ -357,7 +435,15 @@ HTML = r"""<!doctype html>
         interval: Number(document.getElementById('setting-interval').value),
         delay: Number(document.getElementById('setting-delay').value),
         retries: Number(document.getElementById('setting-retries').value),
-        timeout: Number(document.getElementById('setting-timeout').value)
+        timeout: Number(document.getElementById('setting-timeout').value),
+        min_score: Number(document.getElementById('setting-min-score').value),
+        max_notional: Number(document.getElementById('setting-max-notional').value),
+        stop_loss_pct: Number(document.getElementById('setting-stop-loss-pct').value) / 100,
+        take_profit_pct: Number(document.getElementById('setting-take-profit-pct').value) / 100,
+        max_daily_loss: Number(document.getElementById('setting-max-daily-loss').value),
+        max_trades_per_day: Number(document.getElementById('setting-max-trades').value),
+        max_losing_streak: Number(document.getElementById('setting-max-losing-streak').value),
+        require_confirmation: document.getElementById('setting-require-confirmation').checked
       };
       const msg = document.getElementById('message');
       msg.textContent = '設定を保存中';
@@ -471,13 +557,37 @@ def monitor_settings() -> dict[str, object]:
     settings["delay"] = max(0.0, float(settings.get("delay", 1.5)))
     settings["retries"] = max(0, int(float(settings.get("retries", 2))))
     settings["timeout"] = max(3.0, float(settings.get("timeout", 10)))
+    settings["min_score"] = max(0.0, float(settings.get("min_score", 2.2)))
+    settings["max_notional"] = max(10000.0, float(settings.get("max_notional", 500000)))
+    settings["lot_size"] = max(1, int(float(settings.get("lot_size", 100))))
+    settings["stop_loss_pct"] = max(0.001, float(settings.get("stop_loss_pct", 0.02)))
+    settings["take_profit_pct"] = max(0.001, float(settings.get("take_profit_pct", 0.04)))
+    settings["max_daily_loss"] = max(1000.0, float(settings.get("max_daily_loss", 10000)))
+    settings["max_trades_per_day"] = max(1, int(float(settings.get("max_trades_per_day", 10))))
+    settings["max_losing_streak"] = max(1, int(float(settings.get("max_losing_streak", 3))))
+    settings["require_confirmation"] = bool(settings.get("require_confirmation", True))
     return settings
 
 
 def save_monitor_settings(values: dict[str, object]) -> dict[str, object]:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     current = monitor_settings()
-    for key in ("mode", "interval", "delay", "retries", "timeout"):
+    for key in (
+        "mode",
+        "interval",
+        "delay",
+        "retries",
+        "timeout",
+        "min_score",
+        "max_notional",
+        "lot_size",
+        "stop_loss_pct",
+        "take_profit_pct",
+        "max_daily_loss",
+        "max_trades_per_day",
+        "max_losing_streak",
+        "require_confirmation",
+    ):
         if key in values:
             current[key] = values[key]
     normalized = monitor_settings_from_values(current)
@@ -492,6 +602,15 @@ def monitor_settings_from_values(values: dict[str, object]) -> dict[str, object]
         "delay": max(0.0, float(values.get("delay", 1.5))),
         "retries": max(0, int(float(values.get("retries", 2)))),
         "timeout": max(3.0, float(values.get("timeout", 10))),
+        "min_score": max(0.0, float(values.get("min_score", 2.2))),
+        "max_notional": max(10000.0, float(values.get("max_notional", 500000))),
+        "lot_size": max(1, int(float(values.get("lot_size", 100)))),
+        "stop_loss_pct": max(0.001, float(values.get("stop_loss_pct", 0.02))),
+        "take_profit_pct": max(0.001, float(values.get("take_profit_pct", 0.04))),
+        "max_daily_loss": max(1000.0, float(values.get("max_daily_loss", 10000))),
+        "max_trades_per_day": max(1, int(float(values.get("max_trades_per_day", 10)))),
+        "max_losing_streak": max(1, int(float(values.get("max_losing_streak", 3)))),
+        "require_confirmation": bool(values.get("require_confirmation", True)),
     }
 
 
@@ -546,9 +665,15 @@ def start_monitor_process() -> dict[str, object]:
         "--trade-plan-output",
         str(DATA_DIR / "trade_plan.csv"),
         "--stop-loss-pct",
-        "0.02",
+        str(settings["stop_loss_pct"]),
         "--take-profit-pct",
-        "0.04",
+        str(settings["take_profit_pct"]),
+        "--min-score",
+        str(settings["min_score"]),
+        "--max-notional",
+        str(settings["max_notional"]),
+        "--lot-size",
+        str(settings["lot_size"]),
     ]
     if settings["mode"] == "demo":
         args.extend(["--demo", "--fetched-at", "2026-07-08T09:12:00"])
@@ -662,6 +787,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_json(command_response(result, "実データの候補スキャンが完了しました"))
             return
         if path == "/api/build-trade-plan":
+            settings = monitor_settings()
             result = run_module(
                 "daytrade_bot.trade_plan",
                 [
@@ -672,21 +798,53 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "--output",
                     str(DATA_DIR / "trade_plan.csv"),
                     "--min-score",
-                    "2.2",
+                    str(settings["min_score"]),
                     "--max-notional",
-                    "500000",
+                    str(settings["max_notional"]),
                     "--lot-size",
-                    "100",
+                    str(settings["lot_size"]),
                     "--stop-loss-pct",
-                    "0.02",
+                    str(settings["stop_loss_pct"]),
                     "--take-profit-pct",
-                    "0.04",
+                    str(settings["take_profit_pct"]),
                 ],
             )
             self.send_json(command_response(result, "注文案を作成しました"))
             return
         if path == "/api/start-monitor":
             self.send_json(start_monitor_process())
+            return
+        if path == "/api/confirm-paper-orders":
+            CONFIRM_FILE.write_text("confirmed from dashboard\n", encoding="utf-8")
+            self.send_json({"ok": True, "message": "紙注文を確認しました"})
+            return
+        if path == "/api/execute-paper-orders":
+            settings = monitor_settings()
+            paper_args = [
+                "--trade-plan",
+                str(DATA_DIR / "trade_plan.csv"),
+                "--prices",
+                str(DATA_DIR / "latest_prices.csv"),
+                "--positions",
+                str(DATA_DIR / "paper_positions.csv"),
+                "--orders",
+                str(DATA_DIR / "paper_orders.csv"),
+                "--state",
+                str(DATA_DIR / "paper_state.json"),
+                "--max-daily-loss",
+                str(settings["max_daily_loss"]),
+                "--max-trades-per-day",
+                str(settings["max_trades_per_day"]),
+                "--max-losing-streak",
+                str(settings["max_losing_streak"]),
+            ]
+            if not settings["require_confirmation"]:
+                paper_args.append("--no-confirmation-required")
+            result = run_module("daytrade_bot.paper_execution", paper_args)
+            response = command_response(result, "紙トレード実行が完了しました")
+            if result.returncode == 0 and result.stdout.strip():
+                response["message"] = result.stdout.strip()
+            self.send_json(response)
             return
         if path == "/api/stop-monitor":
             self.send_json(stop_monitor_process())
@@ -745,6 +903,7 @@ def command_response(result: subprocess.CompletedProcess[str], success_message: 
 def build_state() -> dict[str, object]:
     status = get_status()
     monitor_status = read_json_file(MONITOR_STATUS_FILE)
+    paper_state = read_json_file(DATA_DIR / "paper_state.json")
     monitor_pid = read_monitor_pid()
     monitor_running = is_pid_running(monitor_pid)
     monitor_status["running"] = monitor_running
@@ -767,6 +926,16 @@ def build_state() -> dict[str, object]:
         "summary": latest_summary(),
         "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
         "trade_plan": read_csv_rows(DATA_DIR / "trade_plan.csv", limit=20),
+        "paper_state": {
+            "date": paper_state.get("date", "-"),
+            "realized_pnl": paper_state.get("realized_pnl", 0),
+            "trade_count": paper_state.get("trade_count", 0),
+            "losing_streak": paper_state.get("losing_streak", 0),
+            "last_message": paper_state.get("last_message", "準備完了"),
+        },
+        "paper_confirmation": CONFIRM_FILE.exists(),
+        "paper_positions": read_csv_rows(DATA_DIR / "paper_positions.csv", limit=20),
+        "paper_orders": read_csv_rows(DATA_DIR / "paper_orders.csv", limit=20),
         "events": read_csv_rows(log_path, limit=14),
         "evidence": read_csv_rows(DATA_DIR / "yahoo_evidence.csv", limit=10),
         "failures": read_csv_rows(DATA_DIR / "scan_failures.csv", limit=10),
