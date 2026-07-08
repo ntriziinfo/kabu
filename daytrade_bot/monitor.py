@@ -7,6 +7,7 @@ from pathlib import Path
 from time import sleep
 
 from .scanner import main as scanner_main
+from .trade_plan import build_trade_plan
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +77,7 @@ def run_scan_cycle(args: argparse.Namespace) -> None:
         candidates=count_csv_rows(args.candidates_output),
         evidence=count_csv_rows(args.evidence_output),
         failures=count_csv_rows(args.failures_output),
+        trade_plan=count_csv_rows(args.trade_plan_output),
         message="scan cycle finished",
     )
 
@@ -86,6 +88,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--evidence-output", type=Path, default=DATA_DIR / "scan_evidence.csv")
     parser.add_argument("--candidates-output", type=Path, default=DATA_DIR / "candidates.csv")
     parser.add_argument("--failures-output", type=Path, default=DATA_DIR / "scan_failures.csv")
+    parser.add_argument("--prices", type=Path, default=DATA_DIR / "latest_prices.csv")
+    parser.add_argument("--trade-plan-output", type=Path, default=DATA_DIR / "trade_plan.csv")
+    parser.add_argument("--min-score", type=float, default=2.2)
+    parser.add_argument("--max-notional", type=float, default=500000.0)
+    parser.add_argument("--lot-size", type=int, default=100)
     parser.add_argument("--max-items", type=int, default=10)
     parser.add_argument("--delay", type=float, default=1.5)
     parser.add_argument("--retries", type=int, default=2)
@@ -107,6 +114,19 @@ def main() -> None:
                 write_status(running=False, message="stopped by STOP_TRADING")
                 break
             run_scan_cycle(args)
+            build_trade_plan(
+                args.candidates_output,
+                args.prices,
+                args.trade_plan_output,
+                args.min_score,
+                args.max_notional,
+                args.lot_size,
+            )
+            write_status(
+                running=True,
+                trade_plan=count_csv_rows(args.trade_plan_output),
+                message="scan and trade plan cycle finished",
+            )
             if args.once:
                 write_status(running=False, message="one-shot monitor finished")
                 break
@@ -121,4 +141,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

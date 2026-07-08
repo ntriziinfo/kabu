@@ -182,6 +182,7 @@ HTML = r"""<!doctype html>
       <button class="primary" onclick="postAction('/api/yahoo-demo')">Yahoo demo</button>
       <button class="primary" onclick="postAction('/api/scan-candidates')">Scan candidates</button>
       <button onclick="postAction('/api/live-scan-candidates')">Live scan</button>
+      <button class="primary" onclick="postAction('/api/build-trade-plan')">Build trade plan</button>
       <button class="primary" onclick="postAction('/api/start-monitor')">Start monitor</button>
       <button onclick="postAction('/api/stop-monitor')">Stop monitor</button>
       <button class="primary" onclick="postAction('/api/backtest')">Backtest</button>
@@ -252,6 +253,15 @@ HTML = r"""<!doctype html>
         </div>
       </section>
       <section>
+        <div class="panel-title">Trade plan</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Symbol</th><th>Name</th><th>Status</th><th>Side</th><th>Score</th><th>Price</th><th>Qty</th><th>Notional</th><th>Block</th></tr></thead>
+            <tbody id="trade-plan"></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
         <div class="panel-title">Recent signals</div>
         <div class="panel-body">
           <table>
@@ -277,6 +287,7 @@ HTML = r"""<!doctype html>
       stop.className = 'pill ' + (data.stop_trading ? 'sell' : 'buy');
       renderMetrics(data.summary);
       renderCandidates(data.candidates);
+      renderTradePlan(data.trade_plan);
       renderEvents(data.events);
       renderEvidence(data.evidence);
       renderFailures(data.failures);
@@ -308,6 +319,12 @@ HTML = r"""<!doctype html>
       document.getElementById('candidates').innerHTML = items.map(row => {
         const cls = row.action === 'buy' ? 'buy' : row.action === 'sell' ? 'sell' : '';
         return `<tr><td>${row.symbol}</td><td>${row.name}</td><td><span class="pill ${cls}">${row.action}</span></td><td class="num">${row.score}</td><td class="num">${row.evidence_count}</td><td>${row.reason}</td><td>${row.top_titles}</td></tr>`;
+      }).join('');
+    }
+    function renderTradePlan(items) {
+      document.getElementById('trade-plan').innerHTML = items.map(row => {
+        const cls = row.status === 'ready' ? 'buy' : 'warn';
+        return `<tr><td>${row.symbol}</td><td>${row.name}</td><td><span class="pill ${cls}">${row.status}</span></td><td>${row.side}</td><td class="num">${row.score}</td><td class="num">${row.price}</td><td class="num">${row.quantity}</td><td class="num">${row.estimated_notional}</td><td>${row.block_reason}</td></tr>`;
       }).join('');
     }
     function renderEvents(events) {
@@ -486,6 +503,10 @@ def start_monitor_process() -> dict[str, object]:
         str(DATA_DIR / "candidates.csv"),
         "--failures-output",
         str(DATA_DIR / "scan_failures.csv"),
+        "--prices",
+        str(DATA_DIR / "latest_prices.csv"),
+        "--trade-plan-output",
+        str(DATA_DIR / "trade_plan.csv"),
     ]
     if settings["mode"] == "demo":
         args.extend(["--demo", "--fetched-at", "2026-07-08T09:12:00"])
@@ -598,6 +619,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             self.send_json(command_response(result, "Live candidate scan finished"))
             return
+        if path == "/api/build-trade-plan":
+            result = run_module(
+                "daytrade_bot.trade_plan",
+                [
+                    "--candidates",
+                    str(DATA_DIR / "candidates.csv"),
+                    "--prices",
+                    str(DATA_DIR / "latest_prices.csv"),
+                    "--output",
+                    str(DATA_DIR / "trade_plan.csv"),
+                    "--min-score",
+                    "2.2",
+                    "--max-notional",
+                    "500000",
+                    "--lot-size",
+                    "100",
+                ],
+            )
+            self.send_json(command_response(result, "Trade plan built"))
+            return
         if path == "/api/start-monitor":
             self.send_json(start_monitor_process())
             return
@@ -679,6 +720,7 @@ def build_state() -> dict[str, object]:
         "settings": monitor_settings(),
         "summary": latest_summary(),
         "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
+        "trade_plan": read_csv_rows(DATA_DIR / "trade_plan.csv", limit=20),
         "events": read_csv_rows(log_path, limit=14),
         "evidence": read_csv_rows(DATA_DIR / "yahoo_evidence.csv", limit=10),
         "failures": read_csv_rows(DATA_DIR / "scan_failures.csv", limit=10),

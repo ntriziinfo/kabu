@@ -94,6 +94,16 @@ updates candidates and writes status to `data/monitor_status.json`. The
 dashboard settings panel controls demo/live mode, scan interval, request delay,
 retry count, and timeout. Real orders are still disabled.
 
+To build a paper trade plan from ranked candidates:
+
+```powershell
+C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.trade_plan --candidates data/candidates.csv --prices data/latest_prices.csv
+```
+
+The trade plan uses a minimum evidence score, max notional, and 100-share lot
+size to decide whether a candidate is ready for paper execution. It does not
+send real orders.
+
 ## Structure
 
 - `daytrade_bot/market.py` reads tick data.
@@ -104,6 +114,7 @@ retry count, and timeout. Real orders are still disabled.
 - `daytrade_bot/yahoo_finance.py` collects Yahoo Finance Japan news into evidence CSV.
 - `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
 - `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
+- `daytrade_bot/trade_plan.py` converts ranked candidates into paper order candidates.
 - `daytrade_bot/dashboard.py` serves a local browser dashboard.
 - `daytrade_bot/risk.py` blocks unsafe orders.
 - `daytrade_bot/broker.py` contains paper and live broker adapters.
