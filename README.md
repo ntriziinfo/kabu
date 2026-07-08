@@ -116,6 +116,7 @@ powershell -ExecutionPolicy Bypass -File scripts\doctor.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File scripts\check_market_test_ready.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_autopilot.ps1
+powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_session.ps1
 ```
 
 If your terminal is currently at the Codex workspace root instead of this
@@ -124,6 +125,7 @@ repository folder, run:
 ```powershell
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_autopilot.ps1
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_session.ps1
 ```
 
 To scan a symbol list and create ranked evidence candidates:
@@ -174,6 +176,17 @@ paper orders only, caps the paper notional at 300,000 yen per candidate, writes
 separate `data/market_*` files for the market test, and keeps real broker
 orders disabled.
 
+If you want to start before the open and let the system wait, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_session.ps1
+```
+
+The session runner waits until the JPX cash market is open, runs the live-data
+paper autopilot every 5 minutes, writes `data/market_runner_status.json` and
+`data/market_runner_history.jsonl`, and stops after 90 cycles or after the
+market closes once at least one cycle has run.
+
 The dashboard also has `Start monitor` and `Stop monitor` buttons. Monitoring
 updates candidates and writes status to `data/monitor_status.json`. The
 dashboard settings panel controls demo/live mode, scan interval, request delay,
@@ -201,6 +214,7 @@ ready for paper execution. It does not send real orders.
 - `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
 - `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
 - `daytrade_bot/market_calendar.py` checks JPX business days and cash equity sessions.
+- `daytrade_bot/market_test_runner.py` waits for live sessions and repeats market paper tests.
 - `daytrade_bot/autopilot.py` runs one guarded paper-trading cycle and report.
 - `daytrade_bot/health.py` summarizes warnings for dashboard operation.
 - `daytrade_bot/doctor.py` runs local diagnostics across the paper trading system.
