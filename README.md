@@ -100,6 +100,12 @@ To open the local dashboard:
 C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.dashboard
 ```
 
+To run the automated tests:
+
+```powershell
+C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m unittest discover -s tests
+```
+
 To scan a symbol list and create ranked evidence candidates:
 
 ```powershell
