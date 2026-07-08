@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from .backtest import summarize
 from .health import build_health_report
 from .market_calendar import market_status
+from .market_test_report import build_market_test_report
 from .netstock_highspeed import get_status
 from .paper_execution import CONFIRM_FILE
 from .paper_summary import build_paper_summary
@@ -325,6 +326,12 @@ HTML = r"""<!doctype html>
         </div>
       </section>
       <section>
+        <div class="panel-title">市場テスト状態</div>
+        <div class="panel-body">
+          <div class="grid" id="market-test-metrics"></div>
+        </div>
+      </section>
+      <section>
         <div class="panel-title">保有中の紙ポジション</div>
         <div class="panel-body">
           <table>
@@ -368,6 +375,7 @@ HTML = r"""<!doctype html>
       renderHealth(data.health);
       renderPaperMetrics(data.paper_state, data.paper_confirmation);
       renderPaperSummary(data.paper_summary);
+      renderMarketTest(data.market_test);
       renderPaperPositions(data.paper_positions);
       renderPaperOrders(data.paper_orders);
     }
@@ -470,6 +478,26 @@ HTML = r"""<!doctype html>
         ['紙勝率', `${summary.win_rate_pct ?? 0}%`]
       ];
       document.getElementById('paper-metrics').innerHTML += rows.map(([label, value]) => {
+        return `<div class="metric"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+      }).join('');
+    }
+    function renderMarketTest(report) {
+      const counts = report.counts || {};
+      const summary = report.paper_summary || {};
+      const runner = report.runner_status || {};
+      const rows = [
+        ['状態', translate(report.status || 'unknown')],
+        ['停止フラグ', report.stop_trading ? 'あり' : 'なし'],
+        ['周回数', runner.cycles ?? 0],
+        ['候補', counts.candidates ?? 0],
+        ['材料', counts.evidence ?? 0],
+        ['価格', counts.prices ?? 0],
+        ['注文案', counts.trade_plan ?? 0],
+        ['紙ポジション', summary.position_count ?? 0],
+        ['市場テストPnL', summary.total_pnl ?? 0],
+        ['最終状態', translate(runner.message || '-')]
+      ];
+      document.getElementById('market-test-metrics').innerHTML = rows.map(([label, value]) => {
         return `<div class="metric"><div class="label">${label}</div><div class="value">${value}</div></div>`;
       }).join('');
     }
@@ -1063,6 +1091,7 @@ def build_state() -> dict[str, object]:
         price_path,
         DATA_DIR / "paper_state.json",
     )
+    market_test_report = build_market_test_report(DATA_DIR)
     health = build_health_report(
         DATA_DIR / "scan_failures.csv",
         DATA_DIR / "trade_plan.csv",
@@ -1095,6 +1124,7 @@ def build_state() -> dict[str, object]:
         "trade_plan": read_csv_rows(DATA_DIR / "trade_plan.csv", limit=20),
         "prices": read_csv_rows(price_path, limit=20),
         "health": health,
+        "market_test": market_test_report,
         "paper_summary": paper_summary,
         "paper_state": {
             "date": paper_state.get("date", "-"),

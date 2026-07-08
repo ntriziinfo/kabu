@@ -117,6 +117,9 @@ powershell -ExecutionPolicy Bypass -File scripts\run_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File scripts\check_market_test_ready.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_session.ps1
+powershell -ExecutionPolicy Bypass -File scripts\market_test_status.ps1
+powershell -ExecutionPolicy Bypass -File scripts\stop_market_test.ps1
+powershell -ExecutionPolicy Bypass -File scripts\clear_stop_trading.ps1
 ```
 
 If your terminal is currently at the Codex workspace root instead of this
@@ -126,6 +129,9 @@ repository folder, run:
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_session.ps1
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\market_test_status.ps1
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\stop_market_test.ps1
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\clear_stop_trading.ps1
 ```
 
 To scan a symbol list and create ranked evidence candidates:
@@ -187,6 +193,24 @@ paper autopilot every 5 minutes, writes `data/market_runner_status.json` and
 `data/market_runner_history.jsonl`, and stops after 90 cycles or after the
 market closes once at least one cycle has run.
 
+While it is running, check status with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\market_test_status.ps1
+```
+
+To stop the market test, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\stop_market_test.ps1
+```
+
+Before the next run, clear the stop flag:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\clear_stop_trading.ps1
+```
+
 The dashboard also has `Start monitor` and `Stop monitor` buttons. Monitoring
 updates candidates and writes status to `data/monitor_status.json`. The
 dashboard settings panel controls demo/live mode, scan interval, request delay,
@@ -215,6 +239,7 @@ ready for paper execution. It does not send real orders.
 - `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
 - `daytrade_bot/market_calendar.py` checks JPX business days and cash equity sessions.
 - `daytrade_bot/market_test_runner.py` waits for live sessions and repeats market paper tests.
+- `daytrade_bot/market_test_report.py` summarizes market paper test status and files.
 - `daytrade_bot/autopilot.py` runs one guarded paper-trading cycle and report.
 - `daytrade_bot/health.py` summarizes warnings for dashboard operation.
 - `daytrade_bot/doctor.py` runs local diagnostics across the paper trading system.
