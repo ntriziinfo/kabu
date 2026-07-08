@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .health import build_health_report
+from .market_calendar import market_status
 from .netstock_highspeed import get_status
 from .paper_summary import build_paper_summary
 
@@ -72,6 +73,7 @@ def build_doctor_report(data_dir: Path = DATA_DIR) -> dict[str, object]:
             "is_running": netstock.is_running,
             "exe_path": str(netstock.exe_path),
         },
+        "market": market_status(),
         "files": files,
         "health": health,
         "paper_summary": paper_summary,

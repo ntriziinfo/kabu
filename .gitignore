@@ -15,6 +15,15 @@ data/monitor.pid
 data/monitor_settings.json
 data/trade_plan.csv
 data/runtime_prices.csv
+data/market_scan_evidence.csv
+data/market_candidates.csv
+data/market_scan_failures.csv
+data/market_trade_plan.csv
+data/market_runtime_prices.csv
+data/market_paper_positions.csv
+data/market_paper_orders.csv
+data/market_paper_state.json
+data/market_autopilot_report.json
 data/paper_positions.csv
 data/paper_orders.csv
 data/paper_state.json

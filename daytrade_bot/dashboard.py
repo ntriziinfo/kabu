@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 from .backtest import summarize
 from .health import build_health_report
+from .market_calendar import market_status
 from .netstock_highspeed import get_status
 from .paper_execution import CONFIRM_FILE
 from .paper_summary import build_paper_summary
@@ -201,6 +202,7 @@ HTML = r"""<!doctype html>
       <button class="primary" onclick="postAction('/api/build-trade-plan')">注文案作成</button>
       <button onclick="postAction('/api/confirm-paper-orders')">紙注文を確認</button>
       <button class="primary" onclick="postAction('/api/execute-paper-orders')">紙トレード実行</button>
+      <button class="primary" onclick="postAction('/api/live-paper-autopilot')">市場テスト実行</button>
       <button class="primary" onclick="postAction('/api/start-monitor')">監視開始</button>
       <button onclick="postAction('/api/stop-monitor')">監視停止</button>
       <button class="primary" onclick="postAction('/api/backtest')">検証実行</button>
@@ -214,6 +216,7 @@ HTML = r"""<!doctype html>
         <div class="panel-title">システム <span id="stop-pill" class="pill">...</span></div>
         <div class="panel-body stack">
           <div class="row"><span class="label">NetStock</span><span id="netstock" class="value">...</span></div>
+          <div class="row"><span class="label">市場</span><span id="market" class="value">...</span></div>
           <div class="row"><span class="label">監視</span><span id="monitor" class="value">...</span></div>
           <div class="row"><span class="label">最終更新</span><span id="monitor-cycle" class="value">...</span></div>
           <div class="row"><span class="label">実行ファイル</span><span id="exe" class="value">...</span></div>
@@ -347,6 +350,7 @@ HTML = r"""<!doctype html>
       const data = await res.json();
       document.getElementById('updated').textContent = data.updated_at;
       document.getElementById('netstock').textContent = data.netstock.is_running ? '起動中' : '未起動';
+      document.getElementById('market').textContent = data.market.is_open ? `立会中 ${translate(data.market.phase)}` : translate(data.market.message);
       document.getElementById('monitor').textContent = data.monitor.running ? `監視中 (${translate(data.monitor.mode || 'unknown')})` : '停止中';
       document.getElementById('monitor-cycle').textContent = data.monitor.last_cycle_at || data.monitor.message || '-';
       renderSettings(data.settings);
@@ -520,6 +524,17 @@ HTML = r"""<!doctype html>
         demo: 'デモ',
         live: '実データ',
         unknown: '不明',
+        morning: '前場',
+        afternoon: '後場',
+        pre_open: '寄付き前',
+        lunch_break: '昼休み',
+        closed: '時間外',
+        holiday: '休業日',
+        market_open_morning: '前場の立会時間中',
+        market_open_afternoon: '後場の立会時間中',
+        before_market_open: '立会開始前',
+        after_market_close: '立会時間外',
+        market_holiday: '休業日',
         buy: '買い',
         sell: '売り',
         hold: '見送り',
@@ -943,6 +958,46 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 response["message"] = result.stdout.strip()
             self.send_json(response)
             return
+        if path == "/api/live-paper-autopilot":
+            result = run_module(
+                "daytrade_bot.autopilot",
+                [
+                    "--live",
+                    "--confirm-paper-orders",
+                    "--require-market-open",
+                    "--evidence-output",
+                    str(DATA_DIR / "market_scan_evidence.csv"),
+                    "--candidates-output",
+                    str(DATA_DIR / "market_candidates.csv"),
+                    "--failures-output",
+                    str(DATA_DIR / "market_scan_failures.csv"),
+                    "--prices",
+                    str(DATA_DIR / "market_runtime_prices.csv"),
+                    "--trade-plan",
+                    str(DATA_DIR / "market_trade_plan.csv"),
+                    "--paper-positions",
+                    str(DATA_DIR / "market_paper_positions.csv"),
+                    "--paper-orders",
+                    str(DATA_DIR / "market_paper_orders.csv"),
+                    "--paper-state",
+                    str(DATA_DIR / "market_paper_state.json"),
+                    "--report",
+                    str(DATA_DIR / "market_autopilot_report.json"),
+                    "--max-notional",
+                    "300000",
+                    "--max-daily-loss",
+                    "5000",
+                    "--max-trades-per-day",
+                    "3",
+                    "--max-losing-streak",
+                    "2",
+                ],
+            )
+            response = command_response(result, "市場テストの紙トレードを実行しました")
+            if result.stdout.strip():
+                response["stdout"] = result.stdout.strip()
+            self.send_json(response)
+            return
         if path == "/api/stop-monitor":
             self.send_json(stop_monitor_process())
             return
@@ -1032,6 +1087,7 @@ def build_state() -> dict[str, object]:
             "is_running": status.is_running,
             "exe_path": str(status.exe_path),
         },
+        "market": market_status(),
         "monitor": monitor_status,
         "settings": monitor_settings(),
         "summary": latest_summary(),

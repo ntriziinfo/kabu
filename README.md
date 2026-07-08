@@ -114,6 +114,8 @@ powershell -ExecutionPolicy Bypass -File scripts\run_tests.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_demo_cycle.ps1
 powershell -ExecutionPolicy Bypass -File scripts\doctor.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_paper_autopilot.ps1
+powershell -ExecutionPolicy Bypass -File scripts\check_market_test_ready.ps1
+powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_autopilot.ps1
 ```
 
 If your terminal is currently at the Codex workspace root instead of this
@@ -121,6 +123,7 @@ repository folder, run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_paper_autopilot.ps1
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_autopilot.ps1
 ```
 
 To scan a symbol list and create ranked evidence candidates:
@@ -154,6 +157,23 @@ C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\p
 The autopilot writes `data/autopilot_report.json`. It still never sends real
 broker orders.
 
+For the next live-market paper test, first check readiness:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\check_market_test_ready.ps1
+```
+
+Then, during Tokyo Stock Exchange cash equity trading hours, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_autopilot.ps1
+```
+
+This uses live Yahoo Finance data, requires the JPX market to be open, confirms
+paper orders only, caps the paper notional at 300,000 yen per candidate, writes
+separate `data/market_*` files for the market test, and keeps real broker
+orders disabled.
+
 The dashboard also has `Start monitor` and `Stop monitor` buttons. Monitoring
 updates candidates and writes status to `data/monitor_status.json`. The
 dashboard settings panel controls demo/live mode, scan interval, request delay,
@@ -180,6 +200,7 @@ ready for paper execution. It does not send real orders.
 - `daytrade_bot/yahoo_prices.py` updates quote prices from Yahoo Finance Japan.
 - `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
 - `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
+- `daytrade_bot/market_calendar.py` checks JPX business days and cash equity sessions.
 - `daytrade_bot/autopilot.py` runs one guarded paper-trading cycle and report.
 - `daytrade_bot/health.py` summarizes warnings for dashboard operation.
 - `daytrade_bot/doctor.py` runs local diagnostics across the paper trading system.

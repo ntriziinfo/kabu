@@ -1,4 +1,7 @@
 $ErrorActionPreference = "Stop"
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
 
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $BundledPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
@@ -26,6 +29,9 @@ function Invoke-ProjectPython {
     Push-Location $RepoRoot
     try {
         & $python @Arguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "Python exited with code $LASTEXITCODE"
+        }
     }
     finally {
         Pop-Location
