@@ -160,6 +160,7 @@ HTML = r"""<!doctype html>
     <div class="actions">
       <button class="primary" onclick="postAction('/api/yahoo-demo')">Yahoo demo</button>
       <button class="primary" onclick="postAction('/api/scan-candidates')">Scan candidates</button>
+      <button onclick="postAction('/api/live-scan-candidates')">Live scan</button>
       <button class="primary" onclick="postAction('/api/backtest')">Backtest</button>
       <button class="danger" onclick="postAction('/api/stop')">Stop</button>
       <button onclick="postAction('/api/clear-stop')">Clear stop</button>
@@ -185,6 +186,15 @@ HTML = r"""<!doctype html>
           <table>
             <thead><tr><th>Time</th><th>Symbol</th><th>Source</th><th>Title</th><th>Confidence</th></tr></thead>
             <tbody id="evidence"></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <div class="panel-title">Fetch failures</div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Time</th><th>Symbol</th><th>Name</th><th>Error</th></tr></thead>
+            <tbody id="failures"></tbody>
           </table>
         </div>
       </section>
@@ -230,6 +240,7 @@ HTML = r"""<!doctype html>
       renderCandidates(data.candidates);
       renderEvents(data.events);
       renderEvidence(data.evidence);
+      renderFailures(data.failures);
     }
     function renderMetrics(summary) {
       const labels = {
@@ -262,6 +273,11 @@ HTML = r"""<!doctype html>
     function renderEvidence(items) {
       document.getElementById('evidence').innerHTML = items.map(row => {
         return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${row.source}</td><td>${row.title}</td><td class="num">${row.confidence}</td></tr>`;
+      }).join('');
+    }
+    function renderFailures(items) {
+      document.getElementById('failures').innerHTML = items.map(row => {
+        return `<tr><td>${row.timestamp}</td><td>${row.symbol}</td><td>${row.name}</td><td>${row.error}</td></tr>`;
       }).join('');
     }
     async function postAction(path) {
@@ -361,9 +377,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     str(DATA_DIR / "scan_evidence.csv"),
                     "--candidates-output",
                     str(DATA_DIR / "candidates.csv"),
+                    "--failures-output",
+                    str(DATA_DIR / "scan_failures.csv"),
                 ],
             )
             self.send_json(command_response(result, "Candidate scan finished"))
+            return
+        if path == "/api/live-scan-candidates":
+            result = run_module(
+                "daytrade_bot.scanner",
+                [
+                    "--symbols",
+                    str(DATA_DIR / "symbols.csv"),
+                    "--delay",
+                    "1.5",
+                    "--retries",
+                    "2",
+                    "--timeout",
+                    "10",
+                    "--evidence-output",
+                    str(DATA_DIR / "scan_evidence.csv"),
+                    "--candidates-output",
+                    str(DATA_DIR / "candidates.csv"),
+                    "--failures-output",
+                    str(DATA_DIR / "scan_failures.csv"),
+                ],
+            )
+            self.send_json(command_response(result, "Live candidate scan finished"))
             return
         if path == "/api/backtest":
             result = run_module(
@@ -434,6 +474,7 @@ def build_state() -> dict[str, object]:
         "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
         "events": read_csv_rows(log_path, limit=14),
         "evidence": read_csv_rows(DATA_DIR / "yahoo_evidence.csv", limit=10),
+        "failures": read_csv_rows(DATA_DIR / "scan_failures.csv", limit=10),
     }
 
 

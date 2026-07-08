@@ -5,6 +5,7 @@ import csv
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
+from time import sleep
 
 from .evidence import EvidenceScorer
 from .models import EvidenceItem
@@ -13,6 +14,10 @@ from .yahoo_finance import fetch_quote_news_html, parse_yahoo_finance_news
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
+
+
+def evidence_key(item: EvidenceItem) -> tuple[str, str, str]:
+    return (item.symbol, item.title, item.url)
 
 
 def read_symbols(path: Path) -> list[dict[str, str]]:
@@ -25,6 +30,8 @@ def scan_symbol(
     fetched_at: datetime,
     demo: bool,
     max_items: int,
+    retries: int,
+    timeout: float,
 ) -> list[EvidenceItem]:
     if demo:
         demo_html = DATA_DIR / f"sample_yahoo_finance_{symbol}.html"
@@ -32,7 +39,17 @@ def scan_symbol(
             return []
         html = demo_html.read_text(encoding="utf-8")
     else:
-        html = fetch_quote_news_html(symbol)
+        last_error: Exception | None = None
+        for attempt in range(retries + 1):
+            try:
+                html = fetch_quote_news_html(symbol, timeout=timeout)
+                break
+            except Exception as exc:
+                last_error = exc
+                if attempt < retries:
+                    sleep(min(2.0, 0.5 * (attempt + 1)))
+        else:
+            raise RuntimeError(f"Yahoo fetch failed after {retries + 1} attempts: {last_error}")
     return parse_yahoo_finance_news(html, symbol, fetched_at, max_items=max_items)
 
 
@@ -47,6 +64,15 @@ def write_evidence(path: Path, items: list[EvidenceItem]) -> None:
             row["timestamp"] = item.timestamp.isoformat()
             row["source"] = item.source.value
             writer.writerow(row)
+
+
+def write_failures(path: Path, failures: list[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["timestamp", "symbol", "name", "error"]
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(failures)
 
 
 def write_candidates(
@@ -104,9 +130,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--symbols", type=Path, default=DATA_DIR / "symbols.csv")
     parser.add_argument("--evidence-output", type=Path, default=DATA_DIR / "scan_evidence.csv")
     parser.add_argument("--candidates-output", type=Path, default=DATA_DIR / "candidates.csv")
+    parser.add_argument("--failures-output", type=Path, default=DATA_DIR / "scan_failures.csv")
     parser.add_argument("--max-items", type=int, default=10)
     parser.add_argument("--demo", action="store_true", help="Use saved sample HTML instead of live Yahoo requests")
     parser.add_argument("--fetched-at", help="Override timestamp, e.g. 2026-07-08T09:12:00")
+    parser.add_argument("--retries", type=int, default=2)
+    parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument("--delay", type=float, default=1.0, help="Seconds to wait between live Yahoo requests")
     return parser
 
 
@@ -115,19 +145,36 @@ def main() -> None:
     fetched_at = datetime.fromisoformat(args.fetched_at) if args.fetched_at else datetime.now()
     symbols = read_symbols(args.symbols)
     all_items: list[EvidenceItem] = []
+    seen_items: set[tuple[str, str, str]] = set()
+    failures: list[dict[str, str]] = []
 
-    for symbol_row in symbols:
+    for index, symbol_row in enumerate(symbols):
         symbol = symbol_row["symbol"]
         try:
-            all_items.extend(scan_symbol(symbol, fetched_at, args.demo, args.max_items))
+            items = scan_symbol(symbol, fetched_at, args.demo, args.max_items, args.retries, args.timeout)
+            for item in items:
+                key = evidence_key(item)
+                if key not in seen_items:
+                    seen_items.add(key)
+                    all_items.append(item)
         except Exception as exc:
+            failures.append(
+                {
+                    "timestamp": fetched_at.isoformat(),
+                    "symbol": symbol,
+                    "name": symbol_row.get("name", ""),
+                    "error": str(exc),
+                }
+            )
             print(f"scan failed for {symbol}: {exc}")
+        if not args.demo and index < len(symbols) - 1 and args.delay > 0:
+            sleep(args.delay)
 
     write_evidence(args.evidence_output, all_items)
+    write_failures(args.failures_output, failures)
     write_candidates(args.candidates_output, symbols, all_items, fetched_at)
-    print(f"scanned {len(symbols)} symbols, wrote {len(all_items)} evidence items")
+    print(f"scanned {len(symbols)} symbols, wrote {len(all_items)} evidence items, failures {len(failures)}")
 
 
 if __name__ == "__main__":
     main()
-

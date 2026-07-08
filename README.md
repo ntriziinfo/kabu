@@ -75,6 +75,14 @@ To scan a symbol list and create ranked evidence candidates:
 C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.scanner --symbols data/symbols.csv --demo --fetched-at 2026-07-08T09:12:00
 ```
 
+To scan live Yahoo Finance pages, omit `--demo`. The scanner retries failures,
+waits between requests, deduplicates headlines, and writes fetch errors to
+`data/scan_failures.csv`:
+
+```powershell
+C:\Users\nitro\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m daytrade_bot.scanner --symbols data/symbols.csv --delay 1.5 --retries 2
+```
+
 ## Structure
 
 - `daytrade_bot/market.py` reads tick data.
