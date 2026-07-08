@@ -160,6 +160,7 @@ ready for paper execution. It does not send real orders.
 - `daytrade_bot/yahoo_prices.py` updates quote prices from Yahoo Finance Japan.
 - `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
 - `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
+- `daytrade_bot/health.py` summarizes warnings for dashboard operation.
 - `daytrade_bot/trade_plan.py` converts ranked candidates into paper order candidates.
 - `daytrade_bot/paper_execution.py` executes guarded paper orders.
 - `daytrade_bot/paper_summary.py` summarizes paper positions, risk, and PnL.

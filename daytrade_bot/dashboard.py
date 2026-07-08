@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .backtest import summarize
+from .health import build_health_report
 from .netstock_highspeed import get_status
 from .paper_execution import CONFIRM_FILE
 from .paper_summary import build_paper_summary
@@ -224,6 +225,15 @@ HTML = r"""<!doctype html>
         <div class="panel-body"><code id="message">準備完了</code></div>
       </section>
       <section>
+        <div class="panel-title">運用警告 <span id="health-pill" class="pill">...</span></div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>種類</th><th>内容</th></tr></thead>
+            <tbody id="health"></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
         <div class="panel-title">監視設定</div>
         <div class="panel-body stack">
           <div class="row"><span class="label">モード</span><select id="setting-mode"><option value="demo">デモ</option><option value="live">実データ</option></select></div>
@@ -351,6 +361,7 @@ HTML = r"""<!doctype html>
       renderEvidence(data.evidence);
       renderFailures(data.failures);
       renderPrices(data.prices);
+      renderHealth(data.health);
       renderPaperMetrics(data.paper_state, data.paper_confirmation);
       renderPaperSummary(data.paper_summary);
       renderPaperPositions(data.paper_positions);
@@ -419,6 +430,15 @@ HTML = r"""<!doctype html>
     function renderPrices(items) {
       document.getElementById('prices').innerHTML = items.map(row => {
         return `<tr><td>${row.timestamp || ''}</td><td>${row.symbol}</td><td>${row.name || ''}</td><td class="num">${row.price}</td><td>${translate(row.source || '')}</td></tr>`;
+      }).join('');
+    }
+    function renderHealth(health) {
+      const pill = document.getElementById('health-pill');
+      pill.textContent = translate(health.status || 'ok');
+      pill.className = 'pill ' + (health.status === 'error' ? 'sell' : health.status === 'warn' ? 'warn' : 'buy');
+      const rows = health.warnings && health.warnings.length ? health.warnings : [{ level: 'ok', message: '問題なし' }];
+      document.getElementById('health').innerHTML = rows.map(row => {
+        return `<tr><td><span class="pill ${row.level === 'error' ? 'sell' : row.level === 'warn' ? 'warn' : 'buy'}">${translate(row.level)}</span></td><td>${row.message}</td></tr>`;
       }).join('');
     }
     function renderPaperMetrics(state, confirmation) {
@@ -525,6 +545,10 @@ HTML = r"""<!doctype html>
         stop_loss: '損切り',
         trailing_stop: '追跡損切り',
         yahoo: 'Yahoo',
+        ok: '正常',
+        warn: '注意',
+        error: '異常',
+        info: '情報',
         holding_position: '保有中',
         building_opening_range: '寄付きレンジ形成中',
         entry_window_closed: 'エントリー時間外',
@@ -984,6 +1008,13 @@ def build_state() -> dict[str, object]:
         price_path,
         DATA_DIR / "paper_state.json",
     )
+    health = build_health_report(
+        DATA_DIR / "scan_failures.csv",
+        DATA_DIR / "trade_plan.csv",
+        MONITOR_STATUS_FILE,
+        DATA_DIR / "paper_state.json",
+        price_path,
+    )
     monitor_pid = read_monitor_pid()
     monitor_running = is_pid_running(monitor_pid)
     monitor_status["running"] = monitor_running
@@ -1007,6 +1038,7 @@ def build_state() -> dict[str, object]:
         "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
         "trade_plan": read_csv_rows(DATA_DIR / "trade_plan.csv", limit=20),
         "prices": read_csv_rows(price_path, limit=20),
+        "health": health,
         "paper_summary": paper_summary,
         "paper_state": {
             "date": paper_state.get("date", "-"),
