@@ -656,6 +656,14 @@ def read_json_file(path: Path) -> dict[str, object]:
         return {}
 
 
+def prefer_market_file(market_path: Path, fallback_path: Path) -> Path:
+    if not market_path.exists():
+        return fallback_path
+    if not fallback_path.exists():
+        return market_path
+    return market_path if market_path.stat().st_mtime >= fallback_path.stat().st_mtime else fallback_path
+
+
 def monitor_settings() -> dict[str, object]:
     settings = dict(DEFAULT_MONITOR_SETTINGS)
     settings.update(read_json_file(MONITOR_SETTINGS_FILE))
@@ -1083,20 +1091,26 @@ def command_response(result: subprocess.CompletedProcess[str], success_message: 
 def build_state() -> dict[str, object]:
     status = get_status()
     monitor_status = read_json_file(MONITOR_STATUS_FILE)
-    paper_state = read_json_file(DATA_DIR / "paper_state.json")
-    price_path = PRICE_FILE if PRICE_FILE.exists() else DEMO_PRICE_FILE
+    price_path = prefer_market_file(DATA_DIR / "market_runtime_prices.csv", PRICE_FILE if PRICE_FILE.exists() else DEMO_PRICE_FILE)
+    trade_plan_path = prefer_market_file(DATA_DIR / "market_trade_plan.csv", DATA_DIR / "trade_plan.csv")
+    candidates_path = prefer_market_file(DATA_DIR / "market_candidates.csv", DATA_DIR / "candidates.csv")
+    failures_path = prefer_market_file(DATA_DIR / "market_scan_failures.csv", DATA_DIR / "scan_failures.csv")
+    paper_positions_path = prefer_market_file(DATA_DIR / "market_paper_positions.csv", DATA_DIR / "paper_positions.csv")
+    paper_orders_path = prefer_market_file(DATA_DIR / "market_paper_orders.csv", DATA_DIR / "paper_orders.csv")
+    paper_state_path = DATA_DIR / "market_paper_state.json" if (DATA_DIR / "market_paper_state.json").exists() else DATA_DIR / "paper_state.json"
+    paper_state = read_json_file(paper_state_path)
     paper_summary = build_paper_summary(
-        DATA_DIR / "paper_positions.csv",
-        DATA_DIR / "paper_orders.csv",
+        paper_positions_path,
+        paper_orders_path,
         price_path,
-        DATA_DIR / "paper_state.json",
+        paper_state_path,
     )
     market_test_report = build_market_test_report(DATA_DIR)
     health = build_health_report(
-        DATA_DIR / "scan_failures.csv",
-        DATA_DIR / "trade_plan.csv",
+        failures_path,
+        trade_plan_path,
         MONITOR_STATUS_FILE,
-        DATA_DIR / "paper_state.json",
+        paper_state_path,
         price_path,
     )
     monitor_pid = read_monitor_pid()
@@ -1120,8 +1134,8 @@ def build_state() -> dict[str, object]:
         "monitor": monitor_status,
         "settings": monitor_settings(),
         "summary": latest_summary(),
-        "candidates": read_csv_rows(DATA_DIR / "candidates.csv", limit=20),
-        "trade_plan": read_csv_rows(DATA_DIR / "trade_plan.csv", limit=20),
+        "candidates": read_csv_rows(candidates_path, limit=20),
+        "trade_plan": read_csv_rows(trade_plan_path, limit=20),
         "prices": read_csv_rows(price_path, limit=20),
         "health": health,
         "market_test": market_test_report,
@@ -1134,11 +1148,11 @@ def build_state() -> dict[str, object]:
             "last_message": paper_state.get("last_message", "準備完了"),
         },
         "paper_confirmation": CONFIRM_FILE.exists(),
-        "paper_positions": read_csv_rows(DATA_DIR / "paper_positions.csv", limit=20),
-        "paper_orders": read_csv_rows(DATA_DIR / "paper_orders.csv", limit=20),
+        "paper_positions": read_csv_rows(paper_positions_path, limit=20),
+        "paper_orders": read_csv_rows(paper_orders_path, limit=20),
         "events": read_csv_rows(log_path, limit=14),
         "evidence": read_csv_rows(DATA_DIR / "yahoo_evidence.csv", limit=10),
-        "failures": read_csv_rows(DATA_DIR / "scan_failures.csv", limit=10),
+        "failures": read_csv_rows(failures_path, limit=10),
     }
 
 
