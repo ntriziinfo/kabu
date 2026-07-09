@@ -573,6 +573,7 @@ HTML = r"""<!doctype html>
         score_below_threshold: '点数不足',
         missing_price: '株価未取得',
         max_notional_too_low: '資金上限不足',
+        price_not_realtime: 'リアルタイム価格ではない',
         positive_evidence_cluster: '好材料が集中',
         negative_evidence_cluster: '悪材料が集中',
         insufficient_evidence_score: '材料点が不足',
@@ -936,26 +937,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/build-trade-plan":
             settings = monitor_settings()
+            trade_plan_args = [
+                "--candidates",
+                str(DATA_DIR / "candidates.csv"),
+                "--prices",
+                str(PRICE_FILE),
+                "--output",
+                str(DATA_DIR / "trade_plan.csv"),
+                "--min-score",
+                str(settings["min_score"]),
+                "--max-notional",
+                str(settings["max_notional"]),
+                "--lot-size",
+                str(settings["lot_size"]),
+                "--stop-loss-pct",
+                str(settings["stop_loss_pct"]),
+                "--take-profit-pct",
+                str(settings["take_profit_pct"]),
+            ]
+            if settings["mode"] == "live":
+                trade_plan_args.append("--require-realtime-prices")
             result = run_module(
                 "daytrade_bot.trade_plan",
-                [
-                    "--candidates",
-                    str(DATA_DIR / "candidates.csv"),
-                    "--prices",
-                    str(PRICE_FILE),
-                    "--output",
-                    str(DATA_DIR / "trade_plan.csv"),
-                    "--min-score",
-                    str(settings["min_score"]),
-                    "--max-notional",
-                    str(settings["max_notional"]),
-                    "--lot-size",
-                    str(settings["lot_size"]),
-                    "--stop-loss-pct",
-                    str(settings["stop_loss_pct"]),
-                    "--take-profit-pct",
-                    str(settings["take_profit_pct"]),
-                ],
+                trade_plan_args,
             )
             self.send_json(command_response(result, "注文案を作成しました"))
             return

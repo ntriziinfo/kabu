@@ -117,6 +117,7 @@ def run_prepare(args: argparse.Namespace) -> dict[str, object]:
         args.lot_size,
         args.stop_loss_pct,
         args.take_profit_pct,
+        not args.demo,
     )
     return build_report(args, market, failures, errors)
 

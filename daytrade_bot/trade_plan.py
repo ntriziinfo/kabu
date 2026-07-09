@@ -27,6 +27,17 @@ def read_prices(path: Path) -> dict[str, float]:
     return prices
 
 
+def read_price_rows(path: Path) -> dict[str, dict[str, str]]:
+    return {row.get("symbol", ""): row for row in read_csv(path) if row.get("symbol")}
+
+
+def is_realtime_price(row: dict[str, str] | None) -> bool:
+    if row is None:
+        return False
+    source = row.get("source", "").lower()
+    return source in {"netstock", "netstock_realtime", "manual_realtime", "broker_realtime", "realtime"}
+
+
 def lot_quantity(price: float, max_notional: float, lot_size: int) -> int:
     if price <= 0:
         return 0
@@ -43,9 +54,11 @@ def build_trade_plan(
     lot_size: int,
     stop_loss_pct: float,
     take_profit_pct: float,
+    require_realtime_prices: bool = False,
 ) -> list[dict[str, str]]:
     candidates = read_csv(candidates_path)
     prices = read_prices(prices_path)
+    price_rows = read_price_rows(prices_path)
     now = datetime.now().isoformat(timespec="seconds")
     rows: list[dict[str, str]] = []
 
@@ -58,8 +71,17 @@ def build_trade_plan(
         symbol = candidate.get("symbol", "")
         action = candidate.get("action", "")
         price = prices.get(symbol)
+        price_row = price_rows.get(symbol)
+        price_is_realtime = is_realtime_price(price_row)
         quantity = lot_quantity(price, max_notional, lot_size) if price is not None else 0
-        status = "ready" if action == "buy" and score >= min_score and quantity > 0 else "blocked"
+        status = (
+            "ready"
+            if action == "buy"
+            and score >= min_score
+            and quantity > 0
+            and (not require_realtime_prices or price_is_realtime)
+            else "blocked"
+        )
         if status == "ready" and price is not None:
             stop_loss_price = round(price * (1 - stop_loss_pct), 2)
             take_profit_price = round(price * (1 + take_profit_pct), 2)
@@ -75,6 +97,8 @@ def build_trade_plan(
             block_reason = "score_below_threshold"
         elif price is None:
             block_reason = "missing_price"
+        elif require_realtime_prices and not price_is_realtime:
+            block_reason = "price_not_realtime"
         elif quantity <= 0:
             block_reason = "max_notional_too_low"
         else:
@@ -142,6 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lot-size", type=int, default=100)
     parser.add_argument("--stop-loss-pct", type=float, default=0.02)
     parser.add_argument("--take-profit-pct", type=float, default=0.04)
+    parser.add_argument("--require-realtime-prices", action="store_true")
     return parser
 
 
@@ -156,6 +181,7 @@ def main() -> None:
         args.lot_size,
         args.stop_loss_pct,
         args.take_profit_pct,
+        args.require_realtime_prices,
     )
     ready_count = sum(1 for row in rows if row["status"] == "ready")
     print(f"wrote {len(rows)} trade plan rows, ready {ready_count}")

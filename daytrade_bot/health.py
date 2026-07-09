@@ -43,11 +43,14 @@ def build_health_report(
     blocked = [row for row in trade_plan if row.get("status") == "blocked"]
     ready = [row for row in trade_plan if row.get("status") == "ready"]
     missing_prices = [row for row in trade_plan if row.get("block_reason") == "missing_price"]
+    non_realtime_prices = [row for row in trade_plan if row.get("block_reason") == "price_not_realtime"]
 
     if failures:
         warnings.append({"level": "warn", "message": f"取得失敗 {len(failures)}件"})
     if missing_prices:
         warnings.append({"level": "warn", "message": f"株価不足 {len(missing_prices)}件"})
+    if non_realtime_prices:
+        warnings.append({"level": "warn", "message": f"リアルタイム価格ではない {len(non_realtime_prices)}件"})
     if blocked and not ready:
         warnings.append({"level": "info", "message": "発注候補なし"})
     if str(paper_state.get("last_message", "")).endswith("確認待ち"):
@@ -70,6 +73,7 @@ def build_health_report(
         "blocked_count": len(blocked),
         "ready_count": len(ready),
         "missing_price_count": len(missing_prices),
+        "non_realtime_price_count": len(non_realtime_prices),
         "price_count": len(prices),
         "monitor_message": str(monitor_status.get("message", "")),
         "paper_message": str(paper_state.get("last_message", "")),

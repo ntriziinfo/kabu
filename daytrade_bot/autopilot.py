@@ -74,6 +74,8 @@ def build_monitor_args(args: argparse.Namespace) -> list[str]:
         "--max-losing-streak",
         str(args.max_losing_streak),
     ]
+    if not args.demo:
+        monitor_args.append("--require-realtime-prices")
     if args.demo:
         monitor_args.extend(["--demo", "--fetched-at", args.fetched_at])
     if args.confirm_paper_orders:

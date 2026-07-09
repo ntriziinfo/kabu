@@ -105,6 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lot-size", type=int, default=100)
     parser.add_argument("--stop-loss-pct", type=float, default=0.02)
     parser.add_argument("--take-profit-pct", type=float, default=0.04)
+    parser.add_argument("--require-realtime-prices", action="store_true")
     parser.add_argument("--max-daily-loss", type=float, default=10000.0)
     parser.add_argument("--max-trades-per-day", type=int, default=10)
     parser.add_argument("--max-losing-streak", type=int, default=3)
@@ -140,6 +141,7 @@ def main() -> None:
                 args.lot_size,
                 args.stop_loss_pct,
                 args.take_profit_pct,
+                args.require_realtime_prices,
             )
             paper_result: dict[str, object] = {}
             if args.paper_execute:

@@ -58,6 +58,40 @@ class PaperWorkflowTest(unittest.TestCase):
             self.assertEqual(rows[0]["take_profit_price"], "1040.0")
             self.assertEqual(rows[0]["risk_amount"], "4000.0")
 
+    def test_live_trade_plan_blocks_non_realtime_price_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            candidates = root / "candidates.csv"
+            prices = root / "prices.csv"
+            output = root / "trade_plan.csv"
+
+            write_csv(
+                candidates,
+                [
+                    {
+                        "timestamp": "2026-07-09T09:15:00",
+                        "symbol": "7203",
+                        "name": "Toyota",
+                        "action": "buy",
+                        "score": "3.0",
+                        "evidence_count": "3",
+                        "reason": "positive_evidence_cluster",
+                        "top_titles": "good news",
+                    }
+                ],
+                ["timestamp", "symbol", "name", "action", "score", "evidence_count", "reason", "top_titles"],
+            )
+            write_csv(
+                prices,
+                [{"symbol": "7203", "price": "2889", "source": "yahoo_chart"}],
+                ["symbol", "price", "source"],
+            )
+
+            rows = build_trade_plan(candidates, prices, output, 2.2, 500000, 100, 0.02, 0.04, True)
+
+            self.assertEqual(rows[0]["status"], "blocked")
+            self.assertEqual(rows[0]["block_reason"], "price_not_realtime")
+
     def test_paper_execution_waits_for_confirmation_before_new_entry(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
