@@ -38,6 +38,10 @@ def build_autopilot_args(args: argparse.Namespace) -> list[str]:
         str(args.failures_output),
         "--prices",
         str(args.prices),
+        "--price-source",
+        "netstock_csv",
+        "--netstock-price-csv",
+        str(args.netstock_price_csv),
         "--trade-plan",
         str(args.trade_plan),
         "--paper-positions",
@@ -50,6 +54,8 @@ def build_autopilot_args(args: argparse.Namespace) -> list[str]:
         str(args.autopilot_report),
         "--max-notional",
         str(args.max_notional),
+        "--max-realtime-price-age-seconds",
+        str(args.max_realtime_price_age_seconds),
         "--max-daily-loss",
         str(args.max_daily_loss),
         "--max-trades-per-day",
@@ -122,12 +128,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--candidates-output", type=Path, default=market_file("candidates.csv"))
     parser.add_argument("--failures-output", type=Path, default=market_file("scan_failures.csv"))
     parser.add_argument("--prices", type=Path, default=market_file("runtime_prices.csv"))
+    parser.add_argument("--netstock-price-csv", type=Path, default=DATA_DIR / "netstock_export.csv")
     parser.add_argument("--trade-plan", type=Path, default=market_file("trade_plan.csv"))
     parser.add_argument("--paper-positions", type=Path, default=market_file("paper_positions.csv"))
     parser.add_argument("--paper-orders", type=Path, default=market_file("paper_orders.csv"))
     parser.add_argument("--paper-state", type=Path, default=market_file("paper_state.json"))
     parser.add_argument("--autopilot-report", type=Path, default=market_file("autopilot_report.json"))
     parser.add_argument("--max-notional", type=float, default=300000.0)
+    parser.add_argument("--max-realtime-price-age-seconds", type=float, default=120.0)
     parser.add_argument("--max-daily-loss", type=float, default=5000.0)
     parser.add_argument("--max-trades-per-day", type=int, default=3)
     parser.add_argument("--max-losing-streak", type=int, default=2)

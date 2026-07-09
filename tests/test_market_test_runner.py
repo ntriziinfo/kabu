@@ -26,6 +26,9 @@ class MarketTestRunnerTest(unittest.TestCase):
 
         self.assertIn("--live", command)
         self.assertIn("--require-market-open", command)
+        self.assertIn("--price-source", command)
+        self.assertIn("netstock_csv", command)
+        self.assertIn("--netstock-price-csv", command)
         self.assertIn("market_scan_evidence.csv", " ".join(command))
         self.assertIn("market_paper_state.json", " ".join(command))
 

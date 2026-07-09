@@ -7,6 +7,7 @@ from pathlib import Path
 from time import sleep
 
 from .paper_execution import execute_paper_orders
+from .netstock_prices import update_prices_from_netstock
 from .scanner import main as scanner_main
 from .trade_plan import build_trade_plan
 from .yahoo_prices import update_prices
@@ -93,6 +94,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--prices", type=Path, default=DATA_DIR / "latest_prices.csv")
     parser.add_argument("--demo-prices", type=Path, default=DATA_DIR / "latest_prices.csv")
     parser.add_argument("--update-prices", action="store_true")
+    parser.add_argument("--price-source", choices=["yahoo", "netstock_csv", "none"], default="yahoo")
+    parser.add_argument("--netstock-price-csv", type=Path, default=DATA_DIR / "netstock_export.csv")
+    parser.add_argument("--netstock-price-column")
     parser.add_argument("--trade-plan-output", type=Path, default=DATA_DIR / "trade_plan.csv")
     parser.add_argument("--paper-execute", action="store_true")
     parser.add_argument("--paper-positions", type=Path, default=DATA_DIR / "paper_positions.csv")
@@ -106,6 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stop-loss-pct", type=float, default=0.02)
     parser.add_argument("--take-profit-pct", type=float, default=0.04)
     parser.add_argument("--require-realtime-prices", action="store_true")
+    parser.add_argument("--max-realtime-price-age-seconds", type=float, default=120.0)
     parser.add_argument("--max-daily-loss", type=float, default=10000.0)
     parser.add_argument("--max-trades-per-day", type=int, default=10)
     parser.add_argument("--max-losing-streak", type=int, default=3)
@@ -131,7 +136,15 @@ def main() -> None:
                 break
             run_scan_cycle(args)
             if args.update_prices:
-                update_prices(args.symbols, args.prices, args.timeout, args.delay, demo=args.demo, demo_prices_path=args.demo_prices)
+                if args.price_source == "netstock_csv" and not args.demo:
+                    update_prices_from_netstock(
+                        args.netstock_price_csv,
+                        args.prices,
+                        args.symbols,
+                        args.netstock_price_column,
+                    )
+                elif args.price_source == "yahoo":
+                    update_prices(args.symbols, args.prices, args.timeout, args.delay, demo=args.demo, demo_prices_path=args.demo_prices)
             build_trade_plan(
                 args.candidates_output,
                 args.prices,
@@ -142,6 +155,7 @@ def main() -> None:
                 args.stop_loss_pct,
                 args.take_profit_pct,
                 args.require_realtime_prices,
+                args.max_realtime_price_age_seconds,
             )
             paper_result: dict[str, object] = {}
             if args.paper_execute:

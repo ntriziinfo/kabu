@@ -27,6 +27,12 @@ def count_csv_rows(path: Path) -> int:
         return max(0, sum(1 for _ in handle) - 1)
 
 
+def resolve_price_source(args: argparse.Namespace) -> str:
+    if args.price_source != "auto":
+        return args.price_source
+    return "yahoo" if args.demo else "netstock_csv"
+
+
 def build_monitor_args(args: argparse.Namespace) -> list[str]:
     monitor_args = [
         sys.executable,
@@ -47,6 +53,10 @@ def build_monitor_args(args: argparse.Namespace) -> list[str]:
         str(args.prices),
         "--demo-prices",
         str(args.demo_prices),
+        "--price-source",
+        resolve_price_source(args),
+        "--netstock-price-csv",
+        str(args.netstock_price_csv),
         "--trade-plan-output",
         str(args.trade_plan),
         "--paper-positions",
@@ -67,6 +77,8 @@ def build_monitor_args(args: argparse.Namespace) -> list[str]:
         str(args.stop_loss_pct),
         "--take-profit-pct",
         str(args.take_profit_pct),
+        "--max-realtime-price-age-seconds",
+        str(args.max_realtime_price_age_seconds),
         "--max-daily-loss",
         str(args.max_daily_loss),
         "--max-trades-per-day",
@@ -165,6 +177,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--failures-output", type=Path, default=DATA_DIR / "scan_failures.csv")
     parser.add_argument("--prices", type=Path, default=PRICE_FILE)
     parser.add_argument("--demo-prices", type=Path, default=DEMO_PRICE_FILE)
+    parser.add_argument("--price-source", choices=["auto", "yahoo", "netstock_csv", "none"], default="auto")
+    parser.add_argument("--netstock-price-csv", type=Path, default=DATA_DIR / "netstock_export.csv")
     parser.add_argument("--trade-plan", type=Path, default=DATA_DIR / "trade_plan.csv")
     parser.add_argument("--paper-positions", type=Path, default=DATA_DIR / "paper_positions.csv")
     parser.add_argument("--paper-orders", type=Path, default=DATA_DIR / "paper_orders.csv")
@@ -183,6 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lot-size", type=int, default=100)
     parser.add_argument("--stop-loss-pct", type=float, default=0.02)
     parser.add_argument("--take-profit-pct", type=float, default=0.04)
+    parser.add_argument("--max-realtime-price-age-seconds", type=float, default=120.0)
     parser.add_argument("--max-daily-loss", type=float, default=10000.0)
     parser.add_argument("--max-trades-per-day", type=int, default=10)
     parser.add_argument("--max-losing-streak", type=int, default=3)

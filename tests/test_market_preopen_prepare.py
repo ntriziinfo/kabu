@@ -13,6 +13,7 @@ class MarketPreopenPrepareTest(unittest.TestCase):
         self.assertIn("market_runtime_prices.csv", str(args.prices))
         self.assertIn("market_trade_plan.csv", str(args.trade_plan))
         self.assertTrue(args.require_market_day)
+        self.assertEqual(args.price_source, "netstock_csv")
 
     def test_missing_csv_counts_as_zero(self) -> None:
         self.assertEqual(count_csv_rows(__import__("pathlib").Path("does-not-exist.csv")), 0)

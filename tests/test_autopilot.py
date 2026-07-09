@@ -46,6 +46,15 @@ class AutopilotTest(unittest.TestCase):
         self.assertNotIn("--demo", command)
         self.assertNotIn("--fetched-at", command)
 
+    def test_live_mode_uses_netstock_price_csv_by_default(self) -> None:
+        args = build_parser().parse_args(["--live"])
+        command = build_monitor_args(args)
+
+        self.assertIn("--price-source", command)
+        self.assertIn("netstock_csv", command)
+        self.assertIn("--require-realtime-prices", command)
+        self.assertIn("--max-realtime-price-age-seconds", command)
+
     def test_market_open_guard_can_be_enabled_for_live_test(self) -> None:
         args = build_parser().parse_args(["--live", "--require-market-open"])
 

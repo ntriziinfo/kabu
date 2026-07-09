@@ -9,6 +9,7 @@ from time import sleep
 
 from .health import build_health_report
 from .market_calendar import market_status, parse_datetime
+from .netstock_prices import update_prices_from_netstock
 from .paper_summary import build_paper_summary
 from .scanner import read_symbols, scan_symbol, write_candidates, write_evidence, write_failures
 from .trade_plan import build_trade_plan
@@ -105,7 +106,10 @@ def run_prepare(args: argparse.Namespace) -> dict[str, object]:
     write_failures(args.failures_output, failures)
     write_candidates(args.candidates_output, symbols, all_items, fetched_at)
     try:
-        update_prices(args.symbols, args.prices, args.timeout, args.delay, demo=args.demo, demo_prices_path=args.demo_prices)
+        if args.price_source == "netstock_csv" and not args.demo:
+            update_prices_from_netstock(args.netstock_price_csv, args.prices, args.symbols, args.netstock_price_column)
+        elif args.price_source == "yahoo":
+            update_prices(args.symbols, args.prices, args.timeout, args.delay, demo=args.demo, demo_prices_path=args.demo_prices)
     except Exception as exc:
         errors.append({"stage": "price_update", "error": str(exc)})
     build_trade_plan(
@@ -118,6 +122,7 @@ def run_prepare(args: argparse.Namespace) -> dict[str, object]:
         args.stop_loss_pct,
         args.take_profit_pct,
         not args.demo,
+        args.max_realtime_price_age_seconds,
     )
     return build_report(args, market, failures, errors)
 
@@ -130,6 +135,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--failures-output", type=Path, default=DATA_DIR / "market_scan_failures.csv")
     parser.add_argument("--prices", type=Path, default=DATA_DIR / "market_runtime_prices.csv")
     parser.add_argument("--demo-prices", type=Path, default=DATA_DIR / "latest_prices.csv")
+    parser.add_argument("--price-source", choices=["yahoo", "netstock_csv", "none"], default="netstock_csv")
+    parser.add_argument("--netstock-price-csv", type=Path, default=DATA_DIR / "netstock_export.csv")
+    parser.add_argument("--netstock-price-column")
     parser.add_argument("--trade-plan", type=Path, default=DATA_DIR / "market_trade_plan.csv")
     parser.add_argument("--paper-positions", type=Path, default=DATA_DIR / "market_paper_positions.csv")
     parser.add_argument("--paper-orders", type=Path, default=DATA_DIR / "market_paper_orders.csv")
@@ -148,6 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lot-size", type=int, default=100)
     parser.add_argument("--stop-loss-pct", type=float, default=0.02)
     parser.add_argument("--take-profit-pct", type=float, default=0.04)
+    parser.add_argument("--max-realtime-price-age-seconds", type=float, default=120.0)
     return parser
 
 

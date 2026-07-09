@@ -45,6 +45,11 @@ class HealthReportTest(unittest.TestCase):
                         "status": "blocked",
                         "block_reason": "price_not_realtime",
                     },
+                    {
+                        "symbol": "9984",
+                        "status": "blocked",
+                        "block_reason": "stale_realtime_price",
+                    },
                 ],
                 ["symbol", "status", "block_reason"],
             )
@@ -57,7 +62,9 @@ class HealthReportTest(unittest.TestCase):
 
             self.assertEqual(report["status"], "warn")
             self.assertEqual(report["non_realtime_price_count"], 1)
+            self.assertEqual(report["stale_realtime_price_count"], 1)
             self.assertIn("リアルタイム価格ではない 1件", messages)
+            self.assertIn("リアルタイム価格が古い 1件", messages)
             self.assertIn("取得失敗 1件", messages)
             self.assertIn("株価不足 1件", messages)
             self.assertIn("紙注文の確認待ち", messages)

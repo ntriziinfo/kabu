@@ -2,6 +2,28 @@
 
 Paper-first intraday auto-trading system for Japanese equities.
 
+## NetStock High Speed real-time price bridge
+
+ライブ/市場テストの価格は Yahoo Finance ではなく、NetStock High Speed からCSV出力した現在値を使います。
+
+1. NetStock High Speed側で登録銘柄/株価一覧などの画面をCSV出力します。
+2. 出力ファイルを `data\netstock_export.csv` として保存します。
+3. 取り込みだけ確認する場合:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\import_netstock_prices.ps1
+```
+
+4. `data\market_runtime_prices.csv` に `source=netstock_realtime` で価格が入ります。
+
+CSVは `銘柄コード, 銘柄名, 現在値, 時刻` のような列を想定しています。列名が違う場合は現在値の列だけ指定できます。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\import_netstock_prices.ps1 -PriceColumn "現値"
+```
+
+ライブの売買候補作成では、`source=netstock_realtime` で、かつ価格CSVの更新時刻が120秒以内でないと `stale_realtime_price` として止まります。Yahoo価格はニュース/参考材料には使えますが、ライブの発注候補価格には使いません。
+
 ## 現在できること
 
 このプロジェクトは、まず安全な紙トレード用として作っています。実注文はまだ出しません。
@@ -113,6 +135,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start_dashboard.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_tests.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_demo_cycle.ps1
 powershell -ExecutionPolicy Bypass -File scripts\doctor.ps1
+powershell -ExecutionPolicy Bypass -File scripts\import_netstock_prices.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_paper_autopilot.ps1
 powershell -ExecutionPolicy Bypass -File scripts\check_market_test_ready.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_market_preopen_prepare.ps1
@@ -129,6 +152,7 @@ repository folder, run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_paper_autopilot.ps1
+powershell -ExecutionPolicy Bypass -File work\kabu\scripts\import_netstock_prices.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_preopen_prepare.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_test_day.ps1
 powershell -ExecutionPolicy Bypass -File work\kabu\scripts\run_market_paper_autopilot.ps1
@@ -181,13 +205,15 @@ Then, during Tokyo Stock Exchange cash equity trading hours, run:
 powershell -ExecutionPolicy Bypass -File scripts\run_market_paper_autopilot.ps1
 ```
 
-This uses live Yahoo Finance data, requires the JPX market to be open, confirms
-paper orders only, caps the paper notional at 300,000 yen per candidate, writes
-separate `data/market_*` files for the market test, and keeps real broker
-orders disabled.
+This uses Yahoo Finance only for evidence/news scanning and imports execution
+prices from `data/netstock_export.csv`, requires the JPX market to be open,
+confirms paper orders only, caps the paper notional at 300,000 yen per
+candidate, writes separate `data/market_*` files for the market test, and keeps
+real broker orders disabled.
 
-Before the open, you can warm up live Yahoo evidence, prices, candidates, and
-trade plans without executing paper orders:
+Before the open, you can warm up live Yahoo evidence, import NetStock CSV
+prices if available, and build candidates/trade plans without executing paper
+orders:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\run_market_preopen_prepare.ps1
@@ -260,6 +286,7 @@ ready for paper execution. It does not send real orders.
 - `daytrade_bot/evidence_backtest.py` replays evidence against market ticks.
 - `daytrade_bot/yahoo_finance.py` collects Yahoo Finance Japan news into evidence CSV.
 - `daytrade_bot/yahoo_prices.py` updates quote prices from Yahoo Finance Japan.
+- `daytrade_bot/netstock_prices.py` imports realtime price CSV exports from NetStock High Speed.
 - `daytrade_bot/scanner.py` scans a symbol list and writes ranked candidates.
 - `daytrade_bot/monitor.py` repeats candidate scans and writes monitor status.
 - `daytrade_bot/market_calendar.py` checks JPX business days and cash equity sessions.

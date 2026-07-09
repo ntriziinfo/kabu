@@ -23,7 +23,7 @@ function Invoke-MarketTestStep {
 }
 
 if (-not $SkipPreopen) {
-    Invoke-MarketTestStep -Name "1/3 Pre-open prepare: update Yahoo evidence, prices, and trade plan" -Arguments @(
+    Invoke-MarketTestStep -Name "1/3 Pre-open prepare: update Yahoo evidence, NetStock prices, and trade plan" -Arguments @(
         "-m", "daytrade_bot.market_preopen_prepare"
     )
 }

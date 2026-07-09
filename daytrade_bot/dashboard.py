@@ -574,6 +574,7 @@ HTML = r"""<!doctype html>
         missing_price: '株価未取得',
         max_notional_too_low: '資金上限不足',
         price_not_realtime: 'リアルタイム価格ではない',
+        stale_realtime_price: 'リアルタイム価格が古い',
         positive_evidence_cluster: '好材料が集中',
         negative_evidence_cluster: '悪材料が集中',
         insufficient_evidence_score: '材料点が不足',
@@ -786,6 +787,10 @@ def start_monitor_process() -> dict[str, object]:
         "--trade-plan-output",
         str(DATA_DIR / "trade_plan.csv"),
         "--update-prices",
+        "--price-source",
+        "yahoo" if settings["mode"] == "demo" else "netstock_csv",
+        "--netstock-price-csv",
+        str(DATA_DIR / "netstock_export.csv"),
         "--stop-loss-pct",
         str(settings["stop_loss_pct"]),
         "--take-profit-pct",
@@ -809,6 +814,8 @@ def start_monitor_process() -> dict[str, object]:
         args.append("--paper-no-confirmation-required")
     if settings["mode"] == "demo":
         args.extend(["--demo", "--fetched-at", "2026-07-08T09:12:00"])
+    else:
+        args.extend(["--require-realtime-prices", "--max-realtime-price-age-seconds", "120"])
 
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     process = subprocess.Popen(
@@ -920,19 +927,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/update-prices":
             settings = monitor_settings()
-            price_args = [
-                "--symbols",
-                str(DATA_DIR / "symbols.csv"),
-                "--output",
-                str(PRICE_FILE),
-                "--delay",
-                str(settings["delay"]),
-                "--timeout",
-                str(settings["timeout"]),
-            ]
             if settings["mode"] == "demo":
+                price_args = [
+                    "--symbols",
+                    str(DATA_DIR / "symbols.csv"),
+                    "--output",
+                    str(PRICE_FILE),
+                    "--delay",
+                    str(settings["delay"]),
+                    "--timeout",
+                    str(settings["timeout"]),
+                ]
                 price_args.extend(["--demo", "--demo-prices", str(DEMO_PRICE_FILE)])
-            result = run_module("daytrade_bot.yahoo_prices", price_args)
+                result = run_module("daytrade_bot.yahoo_prices", price_args)
+            else:
+                price_args = [
+                    "--input",
+                    str(DATA_DIR / "netstock_export.csv"),
+                    "--output",
+                    str(PRICE_FILE),
+                    "--symbols",
+                    str(DATA_DIR / "symbols.csv"),
+                ]
+                result = run_module("daytrade_bot.netstock_prices", price_args)
             self.send_json(command_response(result, "株価を更新しました"))
             return
         if path == "/api/build-trade-plan":
@@ -956,7 +973,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 str(settings["take_profit_pct"]),
             ]
             if settings["mode"] == "live":
-                trade_plan_args.append("--require-realtime-prices")
+                trade_plan_args.extend(["--require-realtime-prices", "--max-realtime-price-age-seconds", "120"])
             result = run_module(
                 "daytrade_bot.trade_plan",
                 trade_plan_args,
@@ -1013,6 +1030,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     str(DATA_DIR / "market_scan_failures.csv"),
                     "--prices",
                     str(DATA_DIR / "market_runtime_prices.csv"),
+                    "--price-source",
+                    "netstock_csv",
+                    "--netstock-price-csv",
+                    str(DATA_DIR / "netstock_export.csv"),
                     "--trade-plan",
                     str(DATA_DIR / "market_trade_plan.csv"),
                     "--paper-positions",
@@ -1025,6 +1046,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     str(DATA_DIR / "market_autopilot_report.json"),
                     "--max-notional",
                     "300000",
+                    "--max-realtime-price-age-seconds",
+                    "120",
                     "--max-daily-loss",
                     "5000",
                     "--max-trades-per-day",
@@ -1162,7 +1185,8 @@ def build_state() -> dict[str, object]:
 
 def main() -> None:
     server = ThreadingHTTPServer((DEFAULT_HOST, DEFAULT_PORT), DashboardHandler)
-    print(f"dashboard: http://{DEFAULT_HOST}:{DEFAULT_PORT}")
+    if sys.stdout:
+        print(f"dashboard: http://{DEFAULT_HOST}:{DEFAULT_PORT}")
     server.serve_forever()
 
 
